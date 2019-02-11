@@ -16,6 +16,7 @@
 #include "EbIntraPrediction.h"
 #include "EbLambdaRateTables.h"
 #include "EbComputeSAD.h"
+#include "RateControlModel.h"
 
 #include "emmintrin.h"
 
@@ -674,6 +675,9 @@ void* MotionEstimationKernel(void *input_ptr)
 
                     }
                 }
+
+                picture_control_set_ptr->complexity = picture_control_set_ptr->pic_avg_variance * picture_control_set_ptr->full_sb_count;
+                rate_control_report_complexity(sequence_control_set_ptr->encode_context_ptr->rate_control_model_ptr, picture_control_set_ptr);
             }
             else {
                 uint32_t                       bestOisCuIndex = 0;

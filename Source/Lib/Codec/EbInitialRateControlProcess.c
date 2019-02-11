@@ -1901,19 +1901,6 @@ void* InitialRateControlKernel(void *input_ptr)
                     else
                         picture_control_set_ptr->end_of_sequence_region = EB_FALSE;
 
-                    if (sequence_control_set_ptr->static_config.rate_control_mode)
-                    {
-                        // Determine offset from the Head Ptr for HLRC histogram queue and set the life count
-                        if (sequence_control_set_ptr->static_config.look_ahead_distance != 0) {
-
-                            // Update Histogram Queue Entry Life count
-                            UpdateHistogramQueueEntry(
-                                sequence_control_set_ptr,
-                                encode_context_ptr,
-                                picture_control_set_ptr);
-                        }
-                    }
-
                     // Mark each input picture as PAN or not
                     // If a lookahead is present then check PAN for a period of time
                     if (!picture_control_set_ptr->end_of_sequence_flag && sequence_control_set_ptr->static_config.look_ahead_distance != 0) {

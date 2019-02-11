@@ -51,7 +51,12 @@ typedef struct  EbRateControlGopInfo_s {
     /*
      * @variable int32_t. Variation from the model taken into account when the intra for this GOP started encoding.
      */
-    int32_t     model_variation;
+    float       model_variation;
+
+    /*
+     * @variable uint32_t. Average complexity for this frame.
+     */
+    uint32_t    complexity;
 } EbRateControlGopInfo;
 
 /*
