@@ -268,7 +268,9 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
         extra = -gop->desired_size + 1;
     }
 
-    uint32_t size = (gop->desired_size + extra) / model_ptr->intra_period;
+    gop->desired_size += extra;
+
+    uint32_t size = gop->desired_size / model_ptr->intra_period;
     uint32_t complexity = estimate_gop_complexity(model_ptr, gop);
     EbRateControlComplexityModelDeviation *deviation_model = EB_NULL;
 
