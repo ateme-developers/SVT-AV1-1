@@ -12,6 +12,11 @@
 #define MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED 5
 #define MODEL_DEFAULT_PIXEL_AREA (1920 * 1080)
 
+#define RATE_CONTROL_MODE_ABR   1
+#define RATE_CONTROL_MODE_CBR   2
+
+#define RATE_CONTROL_DEFAULT_COMPLEXITY_MODEL_SIZE 3
+
 struct SequenceControlSet_s;
 
 typedef struct  EbRateControlComplexityModel_s
@@ -28,6 +33,9 @@ typedef struct  EbRateControlComplexityModelDeviation_s
     float       deviation;
     uint32_t    deviation_reported;
 } EbRateControlComplexityModelDeviation;
+
+EbRateControlComplexityModel G_RATE_CONTROL_DEFAULT_COMPLEXITY_MODEL[RATE_CONTROL_DEFAULT_COMPLEXITY_MODEL_SIZE];
+
 /*
  * @struct Holds a prediction model for a sequence
  */
@@ -52,15 +60,20 @@ typedef struct    RateControlModel_s {
     uint32_t    desired_bitrate;
 
     /*
-     * @variable EB_U32. Desired frame rate set in the configuration
+     * @variable uint32_t. Desired frame rate set in the configuration
      */
     uint32_t    frame_rate;
 
     /*
-     * @variable EB_S32. Intra period length set in the configuration
+     * @variable int32_t. Intra period length set in the configuration
      */
     int32_t     intra_period;
   
+    /*
+     * @variable uint32_t. Rate control mode. 0: OFF(CQP), 1: ABR, 2: CBR)
+     */
+    uint32_t    rate_control_mode;
+
     /*
      * @variable uint32_t. Sum of the bytes of all the encoded frames
      */
