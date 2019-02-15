@@ -1715,18 +1715,6 @@ void* InitialRateControlKernel(void *input_ptr)
                 picture_control_set_ptr,
                 inputResultsPtr);
 
-            if (sequence_control_set_ptr->static_config.rate_control_mode)
-            {
-                if (sequence_control_set_ptr->static_config.look_ahead_distance != 0) {
-
-                    // Getting the Histogram Queue Data
-                    GetHistogramQueueData(
-                        sequence_control_set_ptr,
-                        encode_context_ptr,
-                        picture_control_set_ptr);
-                }
-            }
-
             for (temporal_layer_index = 0; temporal_layer_index < EB_MAX_TEMPORAL_LAYERS; temporal_layer_index++) {
                 picture_control_set_ptr->frames_in_interval[temporal_layer_index] = 0;
             }
