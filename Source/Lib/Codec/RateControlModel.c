@@ -203,7 +203,7 @@ uint32_t get_inter_qp_for_size(EbRateControlModel *model_ptr, uint32_t desired_s
         for (qp = 0; qp < MAX_QP_VALUE; qp++) {
             float size = model_ptr->inter_size_predictions[qp];
 
-            size = (size / (1920 * 1080)) * model_ptr->pixels;
+            size = (size / MODEL_DEFAULT_PIXEL_AREA) * model_ptr->pixels;
             // Scale size for current resolution
             if (desired_size > size) {
                 break;
