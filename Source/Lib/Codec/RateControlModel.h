@@ -10,6 +10,7 @@
 #include "RateControlGopInfo.h"
 
 #define MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED 5
+#define MODEL_DEFAULT_PIXEL_AREA (1920 * 1080)
 
 struct SequenceControlSet_s;
 
