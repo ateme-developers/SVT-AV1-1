@@ -295,8 +295,7 @@ extern EbErrorType RateControlCodedFramesStatsContextCtor(
 extern EbErrorType RateControlContextCtor(
     RateControlContext_t   **context_dbl_ptr,
     EbFifo_t                *rateControlInputTasksFifoPtr,
-    EbFifo_t                *rateControlOutputResultsFifoPtr,
-    int32_t                   intra_period_length);
+    EbFifo_t                *rateControlOutputResultsFifoPtr);
 
 
 
