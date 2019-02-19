@@ -373,6 +373,7 @@ EbErrorType eb_sequence_control_set_instance_ctor(
 
     EB_CREATEMUTEX(EbHandle*, (*object_dbl_ptr)->config_mutex, sizeof(EbHandle), EB_MUTEX);
 
+    rate_control_model_ctor(&(*object_dbl_ptr)->encode_context_ptr->rate_control_model_ptr);
 
     return EB_ErrorNone;
 }

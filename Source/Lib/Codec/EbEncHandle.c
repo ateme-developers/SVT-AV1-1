@@ -102,6 +102,8 @@
 #include "EbRestProcess.h"
 #endif
 
+#include "RateControlModel.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -1057,6 +1059,15 @@ EB_API EbErrorType eb_init_encoder(EbComponentType *svt_enc_component)
     }
 
     /************************************
+    * Rate Control Model
+    ************************************/
+
+    for (instanceIndex = 0; instanceIndex < encHandlePtr->encodeInstanceTotalCount; ++instanceIndex) {
+        rate_control_model_init(encHandlePtr->sequenceControlSetInstanceArray[instanceIndex]->encode_context_ptr->rate_control_model_ptr,
+                                encHandlePtr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr);
+    }
+
+    /************************************
     * System Resource Managers & Fifos
     ************************************/
 
@@ -1534,8 +1545,7 @@ EB_API EbErrorType eb_init_encoder(EbComponentType *svt_enc_component)
     return_error = RateControlContextCtor(
         (RateControlContext_t**)&encHandlePtr->rateControlContextPtr,
         encHandlePtr->rateControlTasksConsumerFifoPtrArray[0],
-        encHandlePtr->rateControlResultsProducerFifoPtrArray[0],
-        encHandlePtr->sequenceControlSetInstanceArray[0]->sequence_control_set_ptr->intra_period_length);
+        encHandlePtr->rateControlResultsProducerFifoPtrArray[0]);
     if (return_error == EB_ErrorInsufficientResources) {
         return EB_ErrorInsufficientResources;
     }
