@@ -40,6 +40,8 @@
 #define RC_GROUP_IN_GOP_MAX_NUMBER                          512
 #define PICTURE_IN_RC_GROUP_MAX_NUMBER                      64
 
+struct RateControlModel_s;
+
 typedef struct EncodeContext_s
 {
     // Callback Functions
@@ -144,6 +146,7 @@ typedef struct EncodeContext_s
     EbObjectWrapper_t                                *previous_picture_control_set_wrapper_ptr;
     EbHandle                                          shared_reference_mutex;
 
+    struct RateControlModel_s                        *rate_control_model_ptr;
 } EncodeContext_t;
 
 typedef struct EncodeContextInitData_s {
