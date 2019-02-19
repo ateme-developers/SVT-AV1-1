@@ -4606,7 +4606,12 @@ void ComputePictureSpatialStatistics(
         picTotVariance += (picture_control_set_ptr->variance[sb_index][RASTER_SCAN_CU_INDEX_64x64]);
     }
 
-    picture_control_set_ptr->pic_avg_variance = (uint16_t)(picTotVariance / sb_total_count);
+    if (picture_control_set_ptr->av1FrameType != INTER_FRAME) {
+        picture_control_set_ptr->pic_avg_variance = (uint16_t)(picTotVariance / sb_total_count);
+        picture_control_set_ptr->complexity = picture_control_set_ptr->pic_avg_variance;
+        rate_control_report_complexity(sequence_control_set_ptr->encode_context_ptr->rate_control_model_ptr, picture_control_set_ptr);
+    }
+
     // Calculate the variance of variance to determine Homogeneous regions. Note: Variance calculation should be on.
     DetermineHomogeneousRegionInPicture(
         sequence_control_set_ptr,

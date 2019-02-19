@@ -16,6 +16,7 @@
 #include "EbIntraPrediction.h"
 #include "EbLambdaRateTables.h"
 #include "EbComputeSAD.h"
+#include "RateControlModel.h"
 
 #include "emmintrin.h"
 
@@ -606,6 +607,8 @@ void* MotionEstimationKernel(void *input_ptr)
 
         eb_block_on_mutex(picture_control_set_ptr->rc_distortion_histogram_mutex);
 
+        uint64_t motion = 0;
+
         if (sequence_control_set_ptr->static_config.rate_control_mode) {
             if (picture_control_set_ptr->slice_type != I_SLICE) {
                 uint16_t sadIntervalIndex;
@@ -625,8 +628,6 @@ void* MotionEstimationKernel(void *input_ptr)
 
 
                             sadIntervalIndex = (uint16_t)(picture_control_set_ptr->rc_me_distortion[sb_index] >> (12 - SAD_PRECISION_INTERVAL));//change 12 to 2*log2(64)
-
-                            // printf("%d\n", sadIntervalIndex);
 
                             sadIntervalIndex = (uint16_t)(sadIntervalIndex >> 2);
                             if (sadIntervalIndex > (NUMBER_OF_SAD_INTERVALS >> 1) - 1) {
@@ -663,6 +664,11 @@ void* MotionEstimationKernel(void *input_ptr)
                                 intra_sad_interval_index = NUMBER_OF_SAD_INTERVALS - 1;
 
 
+                            SbParams_t *sb_params_ptr = &sequence_control_set_ptr->sb_params_array[sb_index];
+                            if (sb_params_ptr->is_complete_sb) {
+                                motion += intra_sad_interval_index;
+                            }
+                            motion += intra_sad_interval_index;
                             picture_control_set_ptr->intra_sad_interval_index[sb_index] = intra_sad_interval_index;
 
                             picture_control_set_ptr->ois_distortion_histogram[intra_sad_interval_index] ++;
