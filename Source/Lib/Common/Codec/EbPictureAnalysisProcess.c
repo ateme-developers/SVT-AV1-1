@@ -4643,6 +4643,7 @@ void ComputePictureSpatialStatistics(
     uint32_t inputCbOriginIndex;
     uint32_t inputCrOriginIndex;
     uint64_t picTotVariance;
+    uint64_t pic_tot_variance_8 = 0;
 
     // Variance
     picTotVariance = 0;
@@ -4684,9 +4685,12 @@ void ComputePictureSpatialStatistics(
         }
 
         picTotVariance += (picture_control_set_ptr->variance[sb_index][RASTER_SCAN_CU_INDEX_64x64]);
+        uint64_t block_variance_8 = 0;
+        for (uint32_t i = RASTER_SCAN_CU_INDEX_8x8_0; i <= RASTER_SCAN_CU_INDEX_8x8_63; i++)
+            block_variance_8 += picture_control_set_ptr->variance[sb_index][i];
+        pic_tot_variance_8 += (block_variance_8 / 16);
     }
 
-    picture_control_set_ptr->pic_avg_variance = (uint16_t)(picTotVariance / sb_total_count);
     // Calculate the variance of variance to determine Homogeneous regions. Note: Variance calculation should be on.
     DetermineHomogeneousRegionInPicture(
         sequence_control_set_ptr,
@@ -4701,6 +4705,11 @@ void ComputePictureSpatialStatistics(
         sequence_control_set_ptr,
         picture_control_set_ptr);
 
+    if (picture_control_set_ptr->av1FrameType != INTER_FRAME) {
+        picture_control_set_ptr->pic_avg_variance = (uint16_t)(picTotVariance / sb_total_count);
+        picture_control_set_ptr->complexity = pic_tot_variance_8 / sb_total_count;
+        rate_control_report_complexity(sequence_control_set_ptr->encode_context_ptr->rate_control_model_ptr, picture_control_set_ptr);
+    }
 
     return;
 }

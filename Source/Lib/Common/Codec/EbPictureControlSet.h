@@ -13857,8 +13857,8 @@ extern "C" {
         int32_t                               mi_stride;
         EbReflist                             colocated_pu_ref_list;
         EbBool                                is_low_delay;
-                                              
-        // slice level chroma QP offsets   
+
+        // slice level chroma QP offsets
         EbBool                                slice_level_chroma_qp_flag;
         int8_t                                slice_cb_qp_offset;
         int8_t                                slice_cr_qp_offset;
@@ -13953,14 +13953,14 @@ extern "C" {
         EbObjectWrapper                    *previous_picture_control_set_wrapper_ptr;
         EbObjectWrapper                    *output_stream_wrapper_ptr;
         Av1Common                            *av1_cm;
-        
+
         // Data attached to the picture. This includes data passed from the application, or other data the encoder attaches
         // to the picture.
         EbLinkedListNode                     *data_ll_head_ptr;
         // pointer to data to be passed back to the application when picture encoding is done
         EbLinkedListNode                     *app_out_data_ll_head_ptr;
 
-        EbBufferHeaderType                   *input_ptr;            // input picture buffer 
+        EbBufferHeaderType                   *input_ptr;            // input picture buffer
 
         EbBool                                idr_flag;
         EbBool                                cra_flag;
@@ -14108,7 +14108,7 @@ extern "C" {
         uint32_t                             *intra_sad_interval_index;
         uint32_t                             *inter_sad_interval_index;
         EbHandle                              rc_distortion_histogram_mutex;
-        
+
         // Open loop Intra candidate Search Results
         ois_sb_results_t                    **ois_sb_results;
         // Dynamic GOP
@@ -14132,7 +14132,7 @@ extern "C" {
         EbBool                                use_src_ref;
         EbBool                                limit_ois_to_dc_mode_flag;
 
-        // Multi-modes signal(s) 
+        // Multi-modes signal(s)
         EbPictureDepthMode                    pic_depth_mode;
         uint8_t                               loop_filter_mode;
         uint8_t                               intra_pred_mode;
@@ -14296,6 +14296,7 @@ extern "C" {
         uint8_t                               nsq_max_shapes_md; // max number of shapes to be tested in MD
         uint8_t                              sc_content_detected;
         uint8_t                              ibc_mode;
+        uint32_t                              complexity;
     } PictureParentControlSet_t;
 
 
@@ -14310,7 +14311,7 @@ extern "C" {
         EB_BITDEPTH                        bit_depth;
         EbColorFormat                      color_format;
         uint32_t                           sb_sz;
-        uint32_t                           sb_size_pix;   //since we still have lot of code assuming 64x64 LCU, we add a new paramter supporting both128x128 and 64x64, 
+        uint32_t                           sb_size_pix;   //since we still have lot of code assuming 64x64 LCU, we add a new paramter supporting both128x128 and 64x64,
                                                           //ultimately the fixed code supporting 64x64 should be upgraded to use 128x128 and the above could be removed.
         uint32_t                           max_depth;
         //EbBool                             is16bit;

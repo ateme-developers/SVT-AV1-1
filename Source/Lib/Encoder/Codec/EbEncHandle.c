@@ -100,6 +100,8 @@
 #include "EbRestProcess.h"
 
 
+#include "EbRateControlModel.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -1173,6 +1175,15 @@ EB_API EbErrorType eb_init_encoder(EbComponentType *svt_enc_component)
         // Set the SequenceControlSet Picture Pool Fifo Ptrs
         encHandlePtr->sequence_control_set_instance_array[instance_index]->encode_context_ptr->reference_picture_pool_fifo_ptr = (encHandlePtr->referencePicturePoolProducerFifoPtrDblArray[instance_index])[0];
         encHandlePtr->sequence_control_set_instance_array[instance_index]->encode_context_ptr->pa_reference_picture_pool_fifo_ptr = (encHandlePtr->paReferencePicturePoolProducerFifoPtrDblArray[instance_index])[0];
+    }
+
+    /************************************
+    * Rate Control Model
+    ************************************/
+
+    for (uint32_t instanceIndex = 0; instanceIndex < encHandlePtr->encodeInstanceTotalCount; ++instanceIndex) {
+        rate_control_model_init(encHandlePtr->sequence_control_set_instance_array[instanceIndex]->encode_context_ptr->rate_control_model_ptr,
+                                encHandlePtr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr);
     }
 
     /************************************

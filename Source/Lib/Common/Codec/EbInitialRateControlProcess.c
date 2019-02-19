@@ -1700,6 +1700,15 @@ void* InitialRateControlKernel(void *input_ptr)
             ReleasePaReferenceObjects(
                 picture_control_set_ptr);
 
+            uint64_t sad_me = 0;
+            for (unsigned int sb_index = 0; sb_index < picture_control_set_ptr->sb_total_count; ++sb_index)
+                sad_me += picture_control_set_ptr->rc_me_distortion[sb_index];
+
+            if (picture_control_set_ptr->av1FrameType == INTER_FRAME) {
+                picture_control_set_ptr->complexity = sad_me / picture_control_set_ptr->sb_total_count;
+                rate_control_report_complexity(sequence_control_set_ptr->encode_context_ptr->rate_control_model_ptr, picture_control_set_ptr);
+            }
+
             //****************************************************
             // Input Motion Analysis Results into Reordering Queue
             //****************************************************
@@ -1709,18 +1718,6 @@ void* InitialRateControlKernel(void *input_ptr)
                 encode_context_ptr,
                 picture_control_set_ptr,
                 inputResultsPtr);
-
-            if (sequence_control_set_ptr->static_config.rate_control_mode)
-            {
-                if (sequence_control_set_ptr->static_config.look_ahead_distance != 0) {
-
-                    // Getting the Histogram Queue Data
-                    GetHistogramQueueData(
-                        sequence_control_set_ptr,
-                        encode_context_ptr,
-                        picture_control_set_ptr);
-                }
-            }
 
             for (temporal_layer_index = 0; temporal_layer_index < EB_MAX_TEMPORAL_LAYERS; temporal_layer_index++) {
                 picture_control_set_ptr->frames_in_interval[temporal_layer_index] = 0;
@@ -1889,24 +1886,6 @@ void* InitialRateControlKernel(void *input_ptr)
                         picture_control_set_ptr->end_of_sequence_region = EB_TRUE;
                     else
                         picture_control_set_ptr->end_of_sequence_region = EB_FALSE;
-
-                    if (sequence_control_set_ptr->static_config.rate_control_mode)
-                    {
-                        // Determine offset from the Head Ptr for HLRC histogram queue and set the life count
-                        if (sequence_control_set_ptr->static_config.look_ahead_distance != 0) {
-
-                            // Update Histogram Queue Entry Life count
-                            UpdateHistogramQueueEntry(
-                                sequence_control_set_ptr,
-                                encode_context_ptr,
-#if RC
-                                picture_control_set_ptr,
-                                frames_in_sw);
-#else
-                                picture_control_set_ptr);
-#endif
-                        }
-                    }
 
                     // Mark each input picture as PAN or not
                     // If a lookahead is present then check PAN for a period of time
