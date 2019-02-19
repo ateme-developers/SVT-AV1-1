@@ -7,7 +7,6 @@
 #define RateControlModel_h
 
 #include "EbSequenceControlSet.h"
-#include "RateControlGopInfo.h"
 
 #define MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED 5
 #define MODEL_DEFAULT_PIXEL_AREA (1920 * 1080)
@@ -18,6 +17,7 @@
 #define RATE_CONTROL_DEFAULT_COMPLEXITY_MODEL_SIZE 3
 
 struct SequenceControlSet_s;
+struct EbRateControlGopInfo_s;
 
 typedef struct  EbRateControlComplexityModel_s
 {
@@ -109,7 +109,7 @@ typedef struct    RateControlModel_s {
      * the current sequence. Dynamically allocated in RateControlInit.
      * Indexed by pictureNumber.
      */
-    EbRateControlGopInfo    *gop_infos;
+    struct EbRateControlGopInfo_s   *gop_infos;
 
     /*
      * @variable uint32_t. The model is updated from the motion estimation
@@ -165,12 +165,14 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr,
                                    PictureParentControlSet_t *picture_ptr);
 
 /*
- * @function get_gop_size_in_bytes. Return the size in bytes a new gop should take
- * to fit closer to the rate control constraints.
+ * @function rate_control_get_qp_for_size. Helper to extract the suggested QP from the
+ * prediction model for a desired size
  * @param {EbRateControlModel*} model_ptr.
- * @return {uint32_t}. Ideal size the gop should take.
+ * @param {uint32_t} desired_size.
+ * @param {uint32_t} complexity.
+ * @return {uint32_t}.
  */
-uint32_t  get_gop_size_in_bytes(EbRateControlModel *model_ptr);
+uint32_t rate_control_get_qp_for_size(EbRateControlModel *model_ptr, uint32_t desired_size, uint32_t complexity);
 
 /*
  * @function estimate_gop_complexity. Estimate the complexity of the given gop.
@@ -179,6 +181,8 @@ uint32_t  get_gop_size_in_bytes(EbRateControlModel *model_ptr);
  * @return {uint32_t}. Estimation of the complexity or 0 if unknown.
  */
 uint32_t estimate_gop_complexity(EbRateControlModel *model_ptr,
-                                 EbRateControlGopInfo *gop_ptr);
+                                 struct EbRateControlGopInfo_s *gop_ptr);
+
+#include "RateControlGopInfo.h"
 
 #endif // RateControlModel_h

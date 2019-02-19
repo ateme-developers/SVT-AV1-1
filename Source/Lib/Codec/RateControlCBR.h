@@ -17,6 +17,14 @@
 void rate_control_cbr_init(EbRateControlModel *model_ptr);
 
 /*
+ * @function rate_control_cbr_gop_completed. Record a completed gop
+ * @param {EbRateControlModel*} model_ptr.
+ * @param {EbRateControlGopInfo*} gop_ptr.
+ * @return {void}.
+ */
+void rate_control_cbr_gop_completed(EbRateControlModel *model_ptr, EbRateControlGopInfo *gop_ptr);
+
+/*
  * @function rate_control_record_new_gop_cbr. Initilaize gop_ptr to meet model_ptr
  * rate control constant bitrate criteria
  * @param {EbRateControlModel*} model_ptr.

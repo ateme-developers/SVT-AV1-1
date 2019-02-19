@@ -136,40 +136,19 @@ EbErrorType rate_control_report_complexity(EbRateControlModel *model_ptr, Pictur
 
 EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_ptr) {
     uint64_t size = picture_ptr->total_num_bits;
-    EbRateControlGopInfo *gop = get_gop_infos(model_ptr->gop_infos, picture_ptr->picture_number);
+    EbRateControlGopInfo *gop_ptr = get_gop_infos(model_ptr->gop_infos, picture_ptr->picture_number);
 
     EbBlockOnMutex(model_ptr->model_mutex);
     model_ptr->total_bytes += size;
     model_ptr->reported_frames++;
-    gop->actual_size += size;
-    gop->reported_frames++;
+    gop_ptr->actual_size += size;
+    gop_ptr->reported_frames++;
 
-    if (gop->reported_frames == gop->length) {
-        float variation = 1;
-
-        if (gop->actual_size > gop->desired_size) {
-            variation = (float)gop->actual_size / (float)gop->desired_size;
-        } else if (gop->actual_size < gop->desired_size) {
-            variation = -((float)(gop->desired_size / (float)gop->actual_size));
-        }
-
-        EbRateControlComplexityModelDeviation *deviation_model = EB_NULL;
-        for (unsigned int i = 0; i < sizeof(COMPLEXITY_DEVIATION); i++) {
-            deviation_model = &model_ptr->complexity_variation_model[i];
-            if (gop->complexity >= deviation_model->scope_start && gop->complexity <= deviation_model->scope_end) {
-                float deviation = 0;
-                if (gop->model_variation < -1.0) {
-                    deviation = variation + gop->model_variation;
-                } else {
-                    deviation = variation - gop->model_variation;
-                }
-
-                deviation_model->deviation = ((deviation_model->deviation * deviation_model->deviation_reported) + deviation) / (deviation_model->deviation_reported + 1);
-                if (deviation_model->deviation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED) {
-                    deviation_model->deviation_reported++;
-                }
-                break;
-            }
+    if (gop_ptr->reported_frames == gop_ptr->length) {
+        if (model_ptr->rate_control_mode == RATE_CONTROL_MODE_ABR) {
+            rate_control_abr_gop_completed(model_ptr, gop_ptr);
+        } else if (model_ptr->rate_control_mode == RATE_CONTROL_MODE_CBR) {
+            rate_control_cbr_gop_completed(model_ptr, gop_ptr);
         }
     }
 
@@ -188,6 +167,67 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentC
     EbRateControlGopInfo *gop = get_gop_infos(model_ptr->gop_infos, picture_ptr->picture_number);
 
     return gop->qp;
+}
+
+uint32_t rate_control_get_qp_for_size(EbRateControlModel *model_ptr, uint32_t desired_size, uint32_t complexity) {
+    uint32_t qp = 63;
+
+    if (!complexity) {
+        for (qp = 0; qp < MAX_QP_VALUE; qp++) {
+            float size = model_ptr->inter_size_predictions[qp];
+
+            size = (size / MODEL_DEFAULT_PIXEL_AREA) * model_ptr->pixels;
+            // Scale size for current resolution
+            if (desired_size > size) {
+                break;
+            }
+        }
+    } else {
+        EbRateControlComplexityModelDeviation *deviation_model = EB_NULL;
+        EbRateControlComplexityModel *complexity_model = EB_NULL;
+
+        EbRateControlComplexityModel *previous_complexity_model = &G_RATE_CONTROL_DEFAULT_COMPLEXITY_MODEL[0];
+
+        // Find the complexity model
+        for (unsigned int i = 0; i < RATE_CONTROL_DEFAULT_COMPLEXITY_MODEL_SIZE; i++) {
+            complexity_model = &G_RATE_CONTROL_DEFAULT_COMPLEXITY_MODEL[i];
+            if (complexity >= complexity_model->scope_start && complexity <= complexity_model->scope_end) {
+                break;
+            }
+            previous_complexity_model = complexity_model;
+        }
+
+        // Find known variation from the model
+        for (unsigned int i = 0; model_ptr->complexity_variation_model[i].scope_end != 0; i++) {
+            deviation_model = &model_ptr->complexity_variation_model[i];
+            if (complexity >= deviation_model->scope_start && complexity <= deviation_model->scope_end) {
+                break;
+            }
+        }
+
+        // Adjust desired GOP size with known variation
+        if (deviation_model->deviation < -1.0) {
+            desired_size = (float)desired_size * -(float)deviation_model->deviation;
+        } else if (deviation_model->deviation > 1.0) {
+            desired_size = (float)desired_size / (float)deviation_model->deviation;
+        }
+
+        // Find corresponding QP for adjusted size in the model
+        for (unsigned int i = 5; i < MAX_QP_VALUE; i++) {
+            uint32_t max_size = complexity_model->max_size[i];
+            uint32_t previous_max_size = (previous_complexity_model == complexity_model) ? 100000 : previous_complexity_model->max_size[i];
+            uint32_t pitch = (max_size - previous_max_size) / (complexity_model->scope_end - complexity_model->scope_start);
+            uint32_t complexity_steps = (complexity % max_size) - complexity_model->scope_start;
+            uint32_t qp_size = previous_max_size + (pitch * complexity_steps);
+
+            if (desired_size > qp_size) {
+                qp = i;
+                break;
+            }
+        }
+    }
+
+    return qp;
 }
 
 static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_ptr) {

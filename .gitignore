@@ -16,3 +16,11 @@ Build/linux/release/
 Build/VS/x64
 Bin
 build
+
+CMakeFiles
+Makefile
+*.cmake
+SvtAv1Enc.pc
+.vscode
+CMakeCache.txt
+Debug

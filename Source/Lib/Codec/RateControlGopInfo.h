@@ -3,11 +3,13 @@
 * SPDX - License - Identifier: BSD - 2 - Clause - Patent
 */
 
-
 #ifndef RateControlGopInfo_h
 #define RateControlGopInfo_h
 
-struct  EbRateControlGopInfo_s;
+#include "RateControlModel.h"
+
+struct EbRateControlModel_s;
+struct EbRateControlComplexityModelDeviation_s;
 
 /*
  * @struct Holds rate control information for a group of picture
@@ -16,7 +18,7 @@ typedef struct  EbRateControlGopInfo_s {
     /*
      * @variable uint8_t. Represents an intra if not zero.
      */
-    EbBool      exists;
+    uint8_t     exists;
 
     /*
      * @variable uint64_t. Frame index.
@@ -72,5 +74,18 @@ typedef struct  EbRateControlGopInfo_s {
  */
 EbRateControlGopInfo *get_gop_infos(EbRateControlGopInfo *gop_info,
                                     uint64_t position);
+
+/*
+ * @function calculate_gop_variation. Return the variation from desired size
+ * and actual size.
+ * @param {EbRateControlModel} model_ptr.
+ * @param {EbRateControlGopInfo*} gop_info. Typically RateControlModel->gopInfos
+ * @param {EbRateControlComplexityModelDeviation**} deviation_double_ptr. Set to the
+ * corresponding model deviation.
+ * @return {float}. Varation. Negative means size is lower than expected.
+ */
+float calculate_gop_variation(EbRateControlModel *model_ptr,
+                              EbRateControlGopInfo *gop_info,
+                              EbRateControlComplexityModelDeviation **deviation_double_ptr);
 
 #endif /* RateControlGopInfo_h */
