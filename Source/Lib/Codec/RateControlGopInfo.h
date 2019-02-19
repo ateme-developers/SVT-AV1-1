@@ -14,9 +14,14 @@ struct  EbRateControlGopInfo_s;
  */
 typedef struct  EbRateControlGopInfo_s {
     /*
-     * @variable uint8_t. Represents an intra if not zero.
+     * @variable EbBool. Represents an intra if not zero.
      */
     EbBool      exists;
+
+    /*
+     * @variable EbBool. Is the frame encoded.
+     */
+    EbBool      encoded;
 
     /*
      * @variable uint64_t. Frame index.
@@ -24,14 +29,29 @@ typedef struct  EbRateControlGopInfo_s {
     uint64_t    index;
 
     /*
-     * @variable uint32_t. Estimated size for the frame in bytes.
+     * @variable size_t. Estimated size for the frame in bytes.
      */
     size_t      desired_size;
 
     /*
-     * @variable uint32_t. Actual size of the frame once encoded.
+     * @variable size_t. Actual size of the gop once encoded.
      */
     size_t      actual_size;
+
+    /*
+     * @variable size_t. Size of the intra frame in bits.
+     */
+    size_t      intra_size;
+
+    /*
+     * @variable size_t. Expected size of the intra frame.
+     */
+    size_t      expected_intra_size;
+
+    /*
+     * @variable size_t. Expected size of the inter frames.
+     */
+    size_t      expected_inter_size;
 
     /*
      * @variable uint8_t. Number of encoded frames in this GOP.
@@ -44,14 +64,19 @@ typedef struct  EbRateControlGopInfo_s {
     size_t      length;
 
     /*
-     * @variable uint8_t. Assigned QP.
+     * @variable uint32_t. Assigned QP.
      */
     uint32_t    qp;
 
     /*
-     * @variable int32_t. Variation from the model taken into account when the intra for this GOP started encoding.
+     * @variable uint32_t. Complexity score of the intra.
      */
-    int32_t     model_variation;
+    uint32_t    complexity;
+
+    /*
+     * @variable PictureParentControlSet_t*. Pointer to the actual frame.
+     */
+    PictureParentControlSet_t *picture_ptr;
 } EbRateControlGopInfo;
 
 /*

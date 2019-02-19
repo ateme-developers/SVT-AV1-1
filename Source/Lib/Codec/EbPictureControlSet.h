@@ -14265,6 +14265,7 @@ extern "C" {
         aom_film_grain_t                      film_grain_params;
         struct aom_denoise_and_model_t       *denoise_and_model;
         EbBool                                enable_in_loop_motion_estimation_flag;
+
 #if REST_M       
         RestUnitSearchInfo                   *rusi_picture[3];//for 3 planes
 #endif
@@ -14280,6 +14281,7 @@ extern "C" {
         uint8_t                               interpolation_search_level;
         uint8_t                               nsq_search_level;
 
+        uint32_t                              complexity;
     } PictureParentControlSet_t;
 
 

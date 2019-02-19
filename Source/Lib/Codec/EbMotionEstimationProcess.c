@@ -16,6 +16,7 @@
 #include "EbIntraPrediction.h"
 #include "EbLambdaRateTables.h"
 #include "EbComputeSAD.h"
+#include "RateControlModel.h"
 
 #include "emmintrin.h"
 
@@ -626,8 +627,6 @@ void* MotionEstimationKernel(void *input_ptr)
 
                             sadIntervalIndex = (uint16_t)(picture_control_set_ptr->rc_me_distortion[sb_index] >> (12 - SAD_PRECISION_INTERVAL));//change 12 to 2*log2(64)
 
-                            // printf("%d\n", sadIntervalIndex);
-
                             sadIntervalIndex = (uint16_t)(sadIntervalIndex >> 2);
                             if (sadIntervalIndex > (NUMBER_OF_SAD_INTERVALS >> 1) - 1) {
                                 uint16_t sadIntervalIndexTemp = sadIntervalIndex - ((NUMBER_OF_SAD_INTERVALS >> 1) - 1);
@@ -661,7 +660,6 @@ void* MotionEstimationKernel(void *input_ptr)
                             }
                             if (intra_sad_interval_index >= NUMBER_OF_SAD_INTERVALS - 1)
                                 intra_sad_interval_index = NUMBER_OF_SAD_INTERVALS - 1;
-
 
                             picture_control_set_ptr->intra_sad_interval_index[sb_index] = intra_sad_interval_index;
 

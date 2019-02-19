@@ -261,16 +261,14 @@ EbErrorType rate_control_coded_frames_stats_context_ctor(
     return EB_ErrorNone;
 }
 
-
 EbErrorType rate_control_context_ctor(
     RateControlContext_t   **context_dbl_ptr,
     EbFifo_t                *rate_control_input_tasks_fifo_ptr,
     EbFifo_t                *rate_control_output_results_fifo_ptr,
-    int32_t                   intra_period_length)
+    int32_t                  intra_period_length)
 {
     uint32_t temporalIndex;
     uint32_t intervalIndex;
-
 #if OVERSHOOT_STAT_PRINT
     uint32_t pictureIndex;
 #endif
@@ -1304,7 +1302,7 @@ static int adaptive_qindex_calc(
                 const int min_boost = get_gf_high_motion_quality(q, bit_depth);
                 const int boost = min_boost - active_best_quality;
 
-                active_best_quality = min_boost - (int)(boost * rc->arf_boost_factor); 
+                active_best_quality = min_boost - (int)(boost * rc->arf_boost_factor);
             }
             else {
                 active_best_quality = rc->arf_q;
@@ -1334,15 +1332,10 @@ static int adaptive_qindex_calc(
 }
 #endif
 void* rate_control_kernel(void *input_ptr){
-  
+
     // Context
     RateControlContext_t        *context_ptr = (RateControlContext_t*)input_ptr;
     // EncodeContext_t             *encode_context_ptr;
-
-    RateControlIntervalParamContext_t *rateControlParamPtr;
-
-    RateControlIntervalParamContext_t *prevGopRateControlParamPtr;
-    RateControlIntervalParamContext_t *nextGopRateControlParamPtr;
 
     PictureControlSet_t         *picture_control_set_ptr;
     PictureParentControlSet_t   *parentPictureControlSetPtr;
@@ -1364,12 +1357,10 @@ void* rate_control_kernel(void *input_ptr){
     uint64_t                       totalNumberOfFbFrames = 0;
 
     RATE_CONTROL_TASKTYPES       taskType;
-    EbRateControlModel          *rc_model_ptr;
+    EbRateControlModel          *rc_model_ptr = EB_NULL;
 #if CONTENT_BASED_QPS
     RATE_CONTROL                 rc;
 #endif
-
-    rate_control_model_ctor(&rc_model_ptr);
 
     for (;;) {
 
@@ -1389,96 +1380,49 @@ void* rate_control_kernel(void *input_ptr){
             picture_control_set_ptr = (PictureControlSet_t*)rateControlTasksPtr->pictureControlSetWrapperPtr->object_ptr;
             sequence_control_set_ptr = (SequenceControlSet_t*)picture_control_set_ptr->sequence_control_set_wrapper_ptr->object_ptr;
 
-            // High level RC
-            if (picture_control_set_ptr->picture_number == 0) {
+// High level RC	
+            if (picture_control_set_ptr->picture_number == 0) {	
 
-                rate_control_model_init(rc_model_ptr, sequence_control_set_ptr);
-                context_ptr->highLevelRateControlPtr->target_bit_rate = sequence_control_set_ptr->static_config.target_bit_rate;
-                context_ptr->highLevelRateControlPtr->frame_rate = sequence_control_set_ptr->frame_rate;
-                context_ptr->highLevelRateControlPtr->channelBitRatePerFrame = (uint64_t)MAX((int64_t)1, (int64_t)((context_ptr->highLevelRateControlPtr->target_bit_rate << RC_PRECISION) / context_ptr->highLevelRateControlPtr->frame_rate));
+                context_ptr->highLevelRateControlPtr->target_bit_rate = sequence_control_set_ptr->static_config.target_bit_rate;	
+                context_ptr->highLevelRateControlPtr->frame_rate = sequence_control_set_ptr->frame_rate;	
+                context_ptr->highLevelRateControlPtr->channelBitRatePerFrame = (uint64_t)MAX((int64_t)1, (int64_t)((context_ptr->highLevelRateControlPtr->target_bit_rate << RC_PRECISION) / context_ptr->highLevelRateControlPtr->frame_rate));	
 
-                context_ptr->highLevelRateControlPtr->channelBitRatePerSw = context_ptr->highLevelRateControlPtr->channelBitRatePerFrame * (sequence_control_set_ptr->static_config.look_ahead_distance + 1);
-                context_ptr->highLevelRateControlPtr->bitConstraintPerSw = context_ptr->highLevelRateControlPtr->channelBitRatePerSw;
+                 context_ptr->highLevelRateControlPtr->channelBitRatePerSw = context_ptr->highLevelRateControlPtr->channelBitRatePerFrame * (sequence_control_set_ptr->static_config.look_ahead_distance + 1);	
+                context_ptr->highLevelRateControlPtr->bitConstraintPerSw = context_ptr->highLevelRateControlPtr->channelBitRatePerSw;	
 
-#if RC_UPDATE_TARGET_RATE
-                context_ptr->highLevelRateControlPtr->previousUpdatedBitConstraintPerSw = context_ptr->highLevelRateControlPtr->channelBitRatePerSw;
-#endif
-#if  CONTENT_BASED_QPS
-                av1_rc_init_minq_luts();
-#endif
-                int32_t totalFrameInInterval = sequence_control_set_ptr->intra_period_length;
-                uint32_t gopPeriod = (1 << picture_control_set_ptr->parent_pcs_ptr->hierarchical_levels);
-                context_ptr->frame_rate = sequence_control_set_ptr->frame_rate;
-                while (totalFrameInInterval >= 0) {
-                    if (totalFrameInInterval % (gopPeriod) == 0)
-                        context_ptr->frames_in_interval[0] ++;
-                    else if (totalFrameInInterval % (gopPeriod >> 1) == 0)
-                        context_ptr->frames_in_interval[1] ++;
-                    else if (totalFrameInInterval % (gopPeriod >> 2) == 0)
-                        context_ptr->frames_in_interval[2] ++;
-                    else if (totalFrameInInterval % (gopPeriod >> 3) == 0)
-                        context_ptr->frames_in_interval[3] ++;
-                    else if (totalFrameInInterval % (gopPeriod >> 4) == 0)
-                        context_ptr->frames_in_interval[4] ++;
-                    else if (totalFrameInInterval % (gopPeriod >> 5) == 0)
-                        context_ptr->frames_in_interval[5] ++;
-                    totalFrameInInterval--;
-                }
-                context_ptr->virtualBufferSize = (((uint64_t)sequence_control_set_ptr->static_config.target_bit_rate * 3) << RC_PRECISION) / (context_ptr->frame_rate);
-                context_ptr->rateAveragePeriodinFrames = (uint64_t)sequence_control_set_ptr->static_config.intra_period_length + 1;
-                context_ptr->virtualBufferLevelInitialValue = context_ptr->virtualBufferSize >> 1;
-                context_ptr->virtualBufferLevel = context_ptr->virtualBufferSize >> 1;
-                context_ptr->previousVirtualBufferLevel = context_ptr->virtualBufferSize >> 1;
-                context_ptr->vbFillThreshold1 = (context_ptr->virtualBufferSize * 6) >> 3;
-                context_ptr->vbFillThreshold2 = (context_ptr->virtualBufferSize << 3) >> 3;
-                context_ptr->baseLayerFramesAvgQp = sequence_control_set_ptr->qp;
-                context_ptr->baseLayerIntraFramesAvgQp = sequence_control_set_ptr->qp;
-            }
-            if (sequence_control_set_ptr->static_config.rate_control_mode)
-            {
-                picture_control_set_ptr->parent_pcs_ptr->intra_selected_org_qp = 0;
-                HighLevelRcInputPictureMode2(
-                    picture_control_set_ptr->parent_pcs_ptr,
-                    sequence_control_set_ptr,
-                    sequence_control_set_ptr->encode_context_ptr,
-                    context_ptr,
-                    context_ptr->highLevelRateControlPtr);
-
-
-            }
-
-            // Frame level RC
-            if (sequence_control_set_ptr->intra_period_length == -1 || sequence_control_set_ptr->static_config.rate_control_mode == 0) {
-                rateControlParamPtr = context_ptr->rateControlParamQueue[0];
-                prevGopRateControlParamPtr = context_ptr->rateControlParamQueue[0];
-                nextGopRateControlParamPtr = context_ptr->rateControlParamQueue[0];
-            }
-            else {
-                uint32_t intervalIndexTemp = 0;
-                EbBool intervalFound = EB_FALSE;
-                while ((intervalIndexTemp < PARALLEL_GOP_MAX_NUMBER) && !intervalFound) {
-
-                    if (picture_control_set_ptr->picture_number >= context_ptr->rateControlParamQueue[intervalIndexTemp]->firstPoc &&
-                        picture_control_set_ptr->picture_number <= context_ptr->rateControlParamQueue[intervalIndexTemp]->lastPoc) {
-                        intervalFound = EB_TRUE;
-                    }
-                    else {
-                        intervalIndexTemp++;
-                    }
-                }
-                CHECK_REPORT_ERROR(
-                    intervalIndexTemp != PARALLEL_GOP_MAX_NUMBER,
-                    sequence_control_set_ptr->encode_context_ptr->app_callback_ptr,
-                    EB_ENC_RC_ERROR2);
-
-                rateControlParamPtr = context_ptr->rateControlParamQueue[intervalIndexTemp];
-
-                prevGopRateControlParamPtr = (intervalIndexTemp == 0) ?
-                    context_ptr->rateControlParamQueue[PARALLEL_GOP_MAX_NUMBER - 1] :
-                    context_ptr->rateControlParamQueue[intervalIndexTemp - 1];
-                nextGopRateControlParamPtr = (intervalIndexTemp == PARALLEL_GOP_MAX_NUMBER - 1) ?
-                    context_ptr->rateControlParamQueue[0] :
-                    context_ptr->rateControlParamQueue[intervalIndexTemp + 1];
+ #if RC_UPDATE_TARGET_RATE	
+                context_ptr->highLevelRateControlPtr->previousUpdatedBitConstraintPerSw = context_ptr->highLevelRateControlPtr->channelBitRatePerSw;	
+#endif	
+#if  CONTENT_BASED_QPS	
+                av1_rc_init_minq_luts();	
+#endif	
+                int32_t totalFrameInInterval = sequence_control_set_ptr->intra_period_length;	
+                uint32_t gopPeriod = (1 << picture_control_set_ptr->parent_pcs_ptr->hierarchical_levels);	
+                context_ptr->frame_rate = sequence_control_set_ptr->frame_rate;	
+                while (totalFrameInInterval >= 0) {	
+                    if (totalFrameInInterval % (gopPeriod) == 0)	
+                        context_ptr->frames_in_interval[0] ++;	
+                    else if (totalFrameInInterval % (gopPeriod >> 1) == 0)	
+                        context_ptr->frames_in_interval[1] ++;	
+                    else if (totalFrameInInterval % (gopPeriod >> 2) == 0)	
+                        context_ptr->frames_in_interval[2] ++;	
+                    else if (totalFrameInInterval % (gopPeriod >> 3) == 0)	
+                        context_ptr->frames_in_interval[3] ++;	
+                    else if (totalFrameInInterval % (gopPeriod >> 4) == 0)	
+                        context_ptr->frames_in_interval[4] ++;	
+                    else if (totalFrameInInterval % (gopPeriod >> 5) == 0)	
+                        context_ptr->frames_in_interval[5] ++;	
+                    totalFrameInInterval--;	
+                }	
+                context_ptr->virtualBufferSize = (((uint64_t)sequence_control_set_ptr->static_config.target_bit_rate * 3) << RC_PRECISION) / (context_ptr->frame_rate);	
+                context_ptr->rateAveragePeriodinFrames = (uint64_t)sequence_control_set_ptr->static_config.intra_period_length + 1;	
+                context_ptr->virtualBufferLevelInitialValue = context_ptr->virtualBufferSize >> 1;	
+                context_ptr->virtualBufferLevel = context_ptr->virtualBufferSize >> 1;	
+                context_ptr->previousVirtualBufferLevel = context_ptr->virtualBufferSize >> 1;	
+                context_ptr->vbFillThreshold1 = (context_ptr->virtualBufferSize * 6) >> 3;	
+                context_ptr->vbFillThreshold2 = (context_ptr->virtualBufferSize << 3) >> 3;	
+                context_ptr->baseLayerFramesAvgQp = sequence_control_set_ptr->qp;	
+                context_ptr->baseLayerIntraFramesAvgQp = sequence_control_set_ptr->qp;	
             }
 
             if (sequence_control_set_ptr->static_config.rate_control_mode == 0) {
@@ -1504,7 +1448,7 @@ void* rate_control_kernel(void *input_ptr){
                                 (int32_t)quantizer_to_qindex[sequence_control_set_ptr->static_config.max_qp_allowed],
                                 (int32_t)(new_qindex));
                     }
- 
+
 #else
                     if (picture_control_set_ptr->slice_type == I_SLICE) {
                         const int32_t delta_qindex = av1_compute_qdelta(
@@ -1519,7 +1463,7 @@ void* rate_control_kernel(void *input_ptr){
                     }
 #endif
                     else {
-#if NEW_PRED_STRUCT                    
+#if NEW_PRED_STRUCT
                         const  double delta_rate_new[2][6] =
                                 { { 0.40, 0.7, 0.85, 1.0, 1.0, 1.0 },
                                 { 0.35, 0.6, 0.8,  0.9, 1.0, 1.0 } };
@@ -1535,7 +1479,7 @@ void* rate_control_kernel(void *input_ptr){
 
 #else
                             q_val * delta_rate_new[picture_control_set_ptr->parent_pcs_ptr->temporal_layer_index],
-#endif     
+#endif
                             (aom_bit_depth_t)sequence_control_set_ptr->static_config.encoder_bit_depth);
 
                         picture_control_set_ptr->parent_pcs_ptr->base_qindex =
@@ -1559,115 +1503,20 @@ void* rate_control_kernel(void *input_ptr){
                 picture_control_set_ptr->parent_pcs_ptr->picture_qp = picture_control_set_ptr->picture_qp;
             }
             else {
+                rc_model_ptr = sequence_control_set_ptr->encode_context_ptr->rate_control_model_ptr;
                 picture_control_set_ptr->picture_qp = rate_control_get_quantizer(rc_model_ptr, picture_control_set_ptr->parent_pcs_ptr);
 
-                if (picture_control_set_ptr->picture_number == rateControlParamPtr->firstPoc && picture_control_set_ptr->picture_number != 0 && !prevGopRateControlParamPtr->scene_change_in_gop) {
-                    int16_t deltaApQp = (int16_t)prevGopRateControlParamPtr->firstPicActualQp - (int16_t)prevGopRateControlParamPtr->firstPicPredQp;
-                    int64_t extraApBitRatio = (prevGopRateControlParamPtr->firstPicPredBits != 0) ?
-                        (((int64_t)prevGopRateControlParamPtr->firstPicActualBits - (int64_t)prevGopRateControlParamPtr->firstPicPredBits) * 100) / ((int64_t)prevGopRateControlParamPtr->firstPicPredBits) :
-                        0;
-                    extraApBitRatio += (int64_t)deltaApQp * 15;
-                    if (extraApBitRatio > 200) {
-                        picture_control_set_ptr->picture_qp = picture_control_set_ptr->picture_qp + 3;
-                    }
-                    else if (extraApBitRatio > 100) {
-                        picture_control_set_ptr->picture_qp = picture_control_set_ptr->picture_qp + 2;
-                    }
-                    else if (extraApBitRatio > 50) {
-                        picture_control_set_ptr->picture_qp++;
-                    }
-                }
-
-                if (picture_control_set_ptr->picture_number == rateControlParamPtr->firstPoc && picture_control_set_ptr->picture_number != 0) {
-                    uint8_t qpIncAllowed = 3;
-                    uint8_t qpDecAllowed = 4;
-                    if (picture_control_set_ptr->parent_pcs_ptr->intra_selected_org_qp + 10 <= prevGopRateControlParamPtr->firstPicActualQp)
-                    {
-                        qpDecAllowed = (uint8_t)(prevGopRateControlParamPtr->firstPicActualQp - picture_control_set_ptr->parent_pcs_ptr->intra_selected_org_qp) >> 1;
-                    }
-
-                    if (picture_control_set_ptr->parent_pcs_ptr->intra_selected_org_qp >= prevGopRateControlParamPtr->firstPicActualQp + 10)
-                    {
-                        qpIncAllowed = (uint8_t)(picture_control_set_ptr->parent_pcs_ptr->intra_selected_org_qp - prevGopRateControlParamPtr->firstPicActualQp) * 2 / 3;
-                        if (prevGopRateControlParamPtr->firstPicActualQp <= 15)
-                            qpIncAllowed += 5;
-                        else if (prevGopRateControlParamPtr->firstPicActualQp <= 20)
-                            qpIncAllowed += 4;
-                        else if (prevGopRateControlParamPtr->firstPicActualQp <= 25)
-                            qpIncAllowed += 3;
-                    }
-                    else if (prevGopRateControlParamPtr->scene_change_in_gop) {
-                        qpIncAllowed = 5;
-                    }
-                    if (picture_control_set_ptr->parent_pcs_ptr->end_of_sequence_region) {
-                        qpIncAllowed += 2;
-                        qpDecAllowed += 4;
-                    }
-                    picture_control_set_ptr->picture_qp = (uint8_t)CLIP3(
-                        (uint32_t)MAX((int32_t)prevGopRateControlParamPtr->firstPicActualQp - (int32_t)qpDecAllowed, 0),
-                        (uint32_t)prevGopRateControlParamPtr->firstPicActualQp + qpIncAllowed,
-                        picture_control_set_ptr->picture_qp);
-                }
-
-                // Scene change
-                if (picture_control_set_ptr->slice_type == I_SLICE && picture_control_set_ptr->picture_number != rateControlParamPtr->firstPoc) {
-                    if (nextGopRateControlParamPtr->firstPicActualQpAssigned) {
-
-                        picture_control_set_ptr->picture_qp = (uint8_t)CLIP3(
-                            (uint32_t)MAX((int32_t)nextGopRateControlParamPtr->firstPicActualQp - (int32_t)1, 0),
-                            (uint32_t)nextGopRateControlParamPtr->firstPicActualQp + 8,
-                            picture_control_set_ptr->picture_qp);
-                    }
-                    else {
-                        if (rateControlParamPtr->firstPicActualQp < 20) {
-                            picture_control_set_ptr->picture_qp = (uint8_t)CLIP3(
-                                (uint32_t)MAX((int32_t)rateControlParamPtr->firstPicActualQp - (int32_t)4, 0),
-                                (uint32_t)rateControlParamPtr->firstPicActualQp + 10,
-                                picture_control_set_ptr->picture_qp);
-                        }
-                        else {
-                            picture_control_set_ptr->picture_qp = (uint8_t)CLIP3(
-                                (uint32_t)MAX((int32_t)rateControlParamPtr->firstPicActualQp - (int32_t)4, 0),
-                                (uint32_t)rateControlParamPtr->firstPicActualQp + 8,
-                                picture_control_set_ptr->picture_qp);
-
-                        }
-
-                    }
-                }
                 picture_control_set_ptr->picture_qp = (uint8_t)CLIP3(
                     sequence_control_set_ptr->static_config.min_qp_allowed,
                     sequence_control_set_ptr->static_config.max_qp_allowed,
                     picture_control_set_ptr->picture_qp);
-#if NEW_QPS
+
                 picture_control_set_ptr->parent_pcs_ptr->base_qindex = quantizer_to_qindex[picture_control_set_ptr->picture_qp];
-#endif
             }
 
             picture_control_set_ptr->parent_pcs_ptr->picture_qp = picture_control_set_ptr->picture_qp;
             if (picture_control_set_ptr->parent_pcs_ptr->temporal_layer_index == 0 && sequence_control_set_ptr->static_config.look_ahead_distance != 0) {
                 context_ptr->baseLayerFramesAvgQp = (3 * context_ptr->baseLayerFramesAvgQp + picture_control_set_ptr->picture_qp + 2) >> 2;
-            }
-            if (picture_control_set_ptr->slice_type == I_SLICE) {
-                if (picture_control_set_ptr->picture_number == rateControlParamPtr->firstPoc) {
-                    rateControlParamPtr->firstPicPredQp = (uint16_t)picture_control_set_ptr->parent_pcs_ptr->best_pred_qp;
-                    rateControlParamPtr->firstPicActualQp = (uint16_t)picture_control_set_ptr->picture_qp;
-                    rateControlParamPtr->scene_change_in_gop = picture_control_set_ptr->parent_pcs_ptr->scene_change_in_gop;
-                    rateControlParamPtr->firstPicActualQpAssigned = EB_TRUE;
-                }
-                {
-                    if (picture_control_set_ptr->picture_number == rateControlParamPtr->firstPoc) {
-                        if (sequence_control_set_ptr->static_config.look_ahead_distance != 0) {
-                            context_ptr->baseLayerIntraFramesAvgQp = (3 * context_ptr->baseLayerIntraFramesAvgQp + picture_control_set_ptr->picture_qp + 2) >> 2;
-                        }
-                    }
-
-                    if (picture_control_set_ptr->picture_number == rateControlParamPtr->firstPoc) {
-                        rateControlParamPtr->intraFramesQp = picture_control_set_ptr->picture_qp;
-                        rateControlParamPtr->nextGopIntraFrameQp = picture_control_set_ptr->picture_qp;
-
-                    }
-                }
             }
             picture_control_set_ptr->parent_pcs_ptr->average_qp = 0;
             for (lcuCodingOrder = 0; lcuCodingOrder < sequence_control_set_ptr->sb_tot_cnt; ++lcuCodingOrder) {
@@ -1704,57 +1553,6 @@ void* rate_control_kernel(void *input_ptr){
 
             if (sequence_control_set_ptr->static_config.rate_control_mode) {
                 rate_control_update_model(rc_model_ptr, parentPictureControlSetPtr);
-            }
-
-            // Frame level RC
-            if (sequence_control_set_ptr->intra_period_length == -1 || sequence_control_set_ptr->static_config.rate_control_mode == 0) {
-                rateControlParamPtr = context_ptr->rateControlParamQueue[0];
-                prevGopRateControlParamPtr = context_ptr->rateControlParamQueue[0];
-                if (parentPictureControlSetPtr->slice_type == I_SLICE) {
-
-                    if (parentPictureControlSetPtr->total_num_bits > MAX_BITS_PER_FRAME) {
-                        context_ptr->maxRateAdjustDeltaQP++;
-                    }
-                    else if (context_ptr->maxRateAdjustDeltaQP > 0 && parentPictureControlSetPtr->total_num_bits < MAX_BITS_PER_FRAME * 85 / 100) {
-                        context_ptr->maxRateAdjustDeltaQP--;
-                    }
-                    context_ptr->maxRateAdjustDeltaQP = CLIP3(0, 63, context_ptr->maxRateAdjustDeltaQP);
-                    context_ptr->maxRateAdjustDeltaQP = 0;
-                }
-            }
-            else {
-                uint32_t intervalIndexTemp = 0;
-                EbBool intervalFound = EB_FALSE;
-                while ((intervalIndexTemp < PARALLEL_GOP_MAX_NUMBER) && !intervalFound) {
-
-                    if (parentPictureControlSetPtr->picture_number >= context_ptr->rateControlParamQueue[intervalIndexTemp]->firstPoc &&
-                        parentPictureControlSetPtr->picture_number <= context_ptr->rateControlParamQueue[intervalIndexTemp]->lastPoc) {
-                        intervalFound = EB_TRUE;
-                    }
-                    else {
-                        intervalIndexTemp++;
-                    }
-                }
-                CHECK_REPORT_ERROR(
-                    intervalIndexTemp != PARALLEL_GOP_MAX_NUMBER,
-                    sequence_control_set_ptr->encode_context_ptr->app_callback_ptr,
-                    EB_ENC_RC_ERROR2);
-
-                rateControlParamPtr = context_ptr->rateControlParamQueue[intervalIndexTemp];
-
-                prevGopRateControlParamPtr = (intervalIndexTemp == 0) ?
-                    context_ptr->rateControlParamQueue[PARALLEL_GOP_MAX_NUMBER - 1] :
-                    context_ptr->rateControlParamQueue[intervalIndexTemp - 1];
-
-            }
-            if (sequence_control_set_ptr->static_config.rate_control_mode != 0) {
-
-                context_ptr->previousVirtualBufferLevel = context_ptr->virtualBufferLevel;
-
-                context_ptr->virtualBufferLevel =
-                    (int64_t)context_ptr->previousVirtualBufferLevel +
-                    (int64_t)parentPictureControlSetPtr->total_num_bits - (int64_t)context_ptr->highLevelRateControlPtr->channelBitRatePerFrame;
-
             }
 
             // Queue variables
@@ -1876,7 +1674,7 @@ void* rate_control_kernel(void *input_ptr){
             // Release the SequenceControlSet
             eb_release_object(parentPictureControlSetPtr->sequence_control_set_wrapper_ptr);
 
-            // Release the input buffer 
+            // Release the input buffer
             eb_release_object(parentPictureControlSetPtr->input_picture_wrapper_ptr);
 
             // Release the ParentPictureControlSet
