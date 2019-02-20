@@ -1705,6 +1705,21 @@ void* InitialRateControlKernel(void *input_ptr)
             ReleasePaReferenceObjects(
                 picture_control_set_ptr);
 
+            unsigned int sad_me = 0;
+            for (unsigned int sb_index = 0; sb_index < picture_control_set_ptr->sb_total_count; ++sb_index) {
+
+                SbParams_t *sb_params_ptr = &sequence_control_set_ptr->sb_params_array[sb_index];
+
+                if (sb_params_ptr->is_complete_sb) {
+                    sad_me += picture_control_set_ptr->inter_sad_interval_index[sb_index];
+                }
+            }
+
+            if (picture_control_set_ptr->av1FrameType == INTER_FRAME) {
+                picture_control_set_ptr->complexity = sad_me;
+                rate_control_report_complexity(sequence_control_set_ptr->encode_context_ptr->rate_control_model_ptr, picture_control_set_ptr);
+            }
+
             //****************************************************
             // Input Motion Analysis Results into Reordering Queue
             //****************************************************

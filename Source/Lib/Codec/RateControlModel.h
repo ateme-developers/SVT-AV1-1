@@ -11,23 +11,42 @@
 
 #define MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED 5
 #define MODEL_DEFAULT_PIXEL_AREA (1920 * 1080)
+#define MAX_COMPLEXITY 999999
+
+#define PITCH_ON_MAX_COMPLEXITY_FOR_INTER_FRAMES 17
+#define PITCH_ON_MAX_COMPLEXITY_FOR_INTRA_FRAMES 57
+
+#define MAX_PORTION_OF_EXTRA_BYTES 3
+#define MAX_DOWNSIZE_FACTOR 15
+
+#define MAX_AMOUNT_OF_FRAME_FOR_ON_THE_FLY_QP 150
+#define AMOUNT_OF_REPORTED_FRAMES_TO_TRIGGER_ON_THE_FLY_QP 10
+
+#define MAX_DELTA_QP_WHITIN_GOP 12
 
 struct SequenceControlSet_s;
 
+typedef struct EbRateControlComplexityQpMinMax_s
+{
+    uint32_t    min;
+    uint32_t    max;
+} EbRateControlComplexityQpMinMax;
+
 typedef struct  EbRateControlComplexityModel_s
 {
-    uint32_t    scope_start;
-    uint32_t    scope_end;
-    uint32_t    max_size[MAX_QP_VALUE + 1];
+    uint32_t                        scope_start;
+    uint32_t                        scope_end;
+    EbRateControlComplexityQpMinMax size[MAX_QP_VALUE + 1];
 } EbRateControlComplexityModel;
 
 typedef struct  EbRateControlComplexityModelDeviation_s
-{
-    uint32_t    scope_start;
-    uint32_t    scope_end;
-    float       deviation;
-    uint32_t    deviation_reported;
-} EbRateControlComplexityModelDeviation;
+ {
+     uint32_t    scope_start;
+     uint32_t    scope_end;
+     float       deviation;
+     uint32_t    deviation_reported;
+ } EbRateControlComplexityModelDeviation;
+
 /*
  * @struct Holds a prediction model for a sequence
  */
@@ -39,12 +58,8 @@ typedef struct    RateControlModel_s {
      */
     size_t      inter_size_predictions[64];
 
-    /*
-     * @variable EbRateControlComplexityModelDeviation*. Dynamically allocated
-     * array holding the deviation from the complexity model for different
-     * intervals. Copy of COMPLEXITY_DEVIATION in RateControlModel.c
-     */
-    EbRateControlComplexityModelDeviation      *complexity_variation_model;
+    EbRateControlComplexityModelDeviation      *complexity_variation_intra_model;
+    EbRateControlComplexityModelDeviation      *complexity_variation_inter_model;
 
     /*
      * @variable uint32_t. Desired bitrate set in the configuration
