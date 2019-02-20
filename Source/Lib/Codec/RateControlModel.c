@@ -57,16 +57,16 @@ static EbRateControlComplexityModelDeviation COMPLEXITY_DEVIATION[] = {
     {30001, 40000, 1, 0},
     {40001, 50000, 1, 0},
     {50001, 60000, 1, 0},
-    {60001, 70000, 1, 0},
-    {70001, 80000, 1, 0},
-    {80001, 90000, 1, 0},
-    {90001, 100000, 1, 0},
-    {100001, 110000, 1, 0},
-    {110001, 120000, 1, 0},
-    {120001, 130000, 1, 0},
-    {130001, 140000, 1, 0},
-    {140001, 150000, 1, 0},
-    {150001, 160000, 1, 0},
+    {60001, 70000, -1.5, 1},
+    {70001, 80000, -1.8, 1},
+    {80001, 90000, -2.5, 1},
+    {90001, 100000, -2.5, 1},
+    {100001, 110000, -1.8, 1},
+    {110001, 120000, -1.8, 1},
+    {120001, 130000, -1.5, 1},
+    {130001, 140000, -1.2, 1},
+    {140001, 150000, -1.2, 1},
+    {150001, 160000, -1.1, 1},
     {160001, 170000, 1, 0},
     {170001, 170000, 1, 0},
     {180001, 190000, 1, 0},
@@ -170,6 +170,8 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
                     deviation = variation - gop->model_variation;
                 }
 
+                deviation = CLIP3(-15, 15, deviation);
+
                 deviation_model->deviation = ((deviation_model->deviation * deviation_model->deviation_reported) + deviation) / (deviation_model->deviation_reported + 1);
                 if (deviation_model->deviation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED) {
                     deviation_model->deviation_reported++;
@@ -263,13 +265,13 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
 
     uint32_t desired_total_bytes = (model_ptr->desired_bitrate / model_ptr->frame_rate) * model_ptr->reported_frames;
     int64_t delta_bytes = desired_total_bytes - model_ptr->total_bytes;
-    int64_t extra = delta_bytes / 4;
+    int64_t extra = delta_bytes / 3;
 
     if (extra < 0 && gop->desired_size < (uint64_t)-extra) {
-        extra = -gop->desired_size + 1;
+        gop->desired_size /= 15;
+    } else {
+        gop->desired_size += extra;
     }
-
-    gop->desired_size += extra;
 
     uint32_t size = gop->desired_size / model_ptr->intra_period;
     uint32_t complexity = estimate_gop_complexity(model_ptr, gop);
