@@ -32,7 +32,7 @@ uint32_t estimate_gop_complexity(EbRateControlModel *model_ptr,
 {
     uint32_t                complexity = 0;
     EbRateControlGopInfo    *current;
-    int64_t                 position = 0;
+    int64_t                 position = 1;
     uint32_t                reported_complexity = 0;
 
     while ((position + gop_ptr->index) < model_ptr->number_of_frame &&
@@ -52,5 +52,5 @@ uint32_t estimate_gop_complexity(EbRateControlModel *model_ptr,
         complexity = complexity / reported_complexity;
     }
 
-     return complexity;
+    return complexity;
 }
