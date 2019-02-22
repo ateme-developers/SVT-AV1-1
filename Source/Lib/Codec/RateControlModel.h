@@ -104,9 +104,11 @@ typedef struct    RateControlModel_s {
      */
     EbHandle                model_mutex;
 
+    /*
+     * @variable float. Average sequence model variation.
+     * Used as temporary variation before the complexity model sets itself
+     */
     float model_variation;
-
-    uint32_t reported_gop;
 } EbRateControlModel;
 
 /*

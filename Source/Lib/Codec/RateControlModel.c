@@ -127,7 +127,6 @@ EbErrorType rate_control_model_init(EbRateControlModel *model_ptr, SequenceContr
     model_ptr->intra_period = sequenceControlSetPtr->static_config.intra_period_length;
     model_ptr->number_of_frame = number_of_frame;
     model_ptr->model_variation = 1.0;
-    model_ptr->reported_gop = 0;
 
     return EB_ErrorNone;
 }
@@ -195,7 +194,6 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
                 break;
             }
         }
-        model_ptr->reported_gop++;
     }
 
     EbReleaseMutex(model_ptr->model_mutex);
@@ -255,7 +253,6 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentC
 
         new_qp = CLIP3(gop->qp - 12, gop->qp + 12, new_qp);
 
-        //printf("\nASK GOP %d. Variation %f. Current QP = %d. Should have been %d. Going from %ld to %ld\n", gop->index, deviation, gop->qp, new_qp, gop->actual_size / gop->reported_frames, average_size);
         return new_qp;
     }
 
@@ -293,13 +290,6 @@ uint32_t get_inter_qp_for_size(EbRateControlModel *model_ptr, uint32_t desired_s
                 break;
             }
         }
-
-        float deviation = 1;
-        if (deviation_model->deviation_reported < 3) {
-            deviation = deviation_model->deviation + model_ptr->model_variation;
-         } else {
-            deviation = deviation_model->deviation;
-         }
 
         if (deviation_model->deviation < -1.0) {
             desired_size = (float)desired_size * -(float)deviation_model->deviation;
