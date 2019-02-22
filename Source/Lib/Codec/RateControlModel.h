@@ -103,6 +103,10 @@ typedef struct    RateControlModel_s {
      * process so the model table should be thread safe.
      */
     EbHandle                model_mutex;
+
+    float model_variation;
+
+    uint32_t reported_gop;
 } EbRateControlModel;
 
 /*

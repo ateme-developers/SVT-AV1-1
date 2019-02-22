@@ -126,6 +126,8 @@ EbErrorType rate_control_model_init(EbRateControlModel *model_ptr, SequenceContr
     model_ptr->gop_infos = gop_infos;
     model_ptr->intra_period = sequenceControlSetPtr->static_config.intra_period_length;
     model_ptr->number_of_frame = number_of_frame;
+    model_ptr->model_variation = 1.0;
+    model_ptr->reported_gop = 0;
 
     return EB_ErrorNone;
 }
@@ -149,6 +151,20 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
     model_ptr->reported_frames++;
     gop->actual_size += size;
     gop->reported_frames++;
+
+    if (picture_ptr->av1FrameType != INTRA_ONLY_FRAME && picture_ptr->av1FrameType != KEY_FRAME) {
+        float deviation = 1;
+        uint32_t average_desired_size = gop->desired_size / model_ptr->intra_period;
+        uint32_t average_size = gop->actual_size / gop->reported_frames;
+
+        if (average_size > average_desired_size) {
+            deviation = (float)average_size / (float)average_desired_size;
+        } else if (average_size < average_desired_size) {
+            deviation = -((float)(average_desired_size / (float)average_size));
+        }
+
+        model_ptr->model_variation = ((model_ptr->model_variation * model_ptr->reported_frames) + deviation) / (model_ptr->reported_frames + 1);
+    }
 
     if (gop->reported_frames == gop->length) {
         float variation = 1;
@@ -179,6 +195,7 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
                 break;
             }
         }
+        model_ptr->reported_gop++;
     }
 
     EbReleaseMutex(model_ptr->model_mutex);
@@ -194,6 +211,53 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentC
     }
 
     EbRateControlGopInfo *gop = get_gop_infos(model_ptr->gop_infos, picture_ptr->picture_number);
+
+    if (gop->reported_frames > 10) {
+        float deviation = 1;
+        uint32_t average_desired_size = gop->desired_size / model_ptr->intra_period;
+        uint32_t average_size = gop->actual_size / gop->reported_frames;
+
+        if (average_size > average_desired_size) {
+            deviation = (float)average_size / (float)average_desired_size;
+        } else if (average_size < average_desired_size) {
+            deviation = -((float)(average_desired_size / (float)average_size));
+        }
+
+        if (deviation < -1.0) {
+            average_size = (float)average_desired_size * (float)(-deviation);
+        } else if (deviation > 1.0) {
+            average_size = (float)average_desired_size / (float)deviation;
+        }
+
+        EbRateControlComplexityModel *complexity_model = EB_NULL;
+        EbRateControlComplexityModel *previous_complexity_model = &DEFAULT_COMPLEXITY_MODEL[0];
+        for (unsigned int i = 0; DEFAULT_COMPLEXITY_MODEL[i].scope_end != 0; i++) {
+            complexity_model = &DEFAULT_COMPLEXITY_MODEL[i];
+            if (gop->complexity >= complexity_model->scope_start && gop->complexity <= complexity_model->scope_end) {
+                break;
+            }
+            previous_complexity_model = complexity_model;
+        }
+
+        uint32_t new_qp = 63;
+        for (unsigned int i = 4; i < MAX_QP_VALUE; i++) {
+            uint32_t max_size = complexity_model->max_size[i];
+            uint32_t previous_max_size = (previous_complexity_model == complexity_model) ? 100000 : previous_complexity_model->max_size[i];
+            uint32_t pitch = (max_size - previous_max_size) / (complexity_model->scope_end - complexity_model->scope_start);
+            uint32_t complexity_steps = (gop->complexity % max_size) - complexity_model->scope_start;
+            uint32_t qp_size = previous_max_size + (pitch * complexity_steps);
+
+            if (average_size > (qp_size / 55)) {
+                new_qp = i;
+                break;
+            }
+        }
+
+        new_qp = CLIP3(gop->qp - 12, gop->qp + 12, new_qp);
+
+        //printf("\nASK GOP %d. Variation %f. Current QP = %d. Should have been %d. Going from %ld to %ld\n", gop->index, deviation, gop->qp, new_qp, gop->actual_size / gop->reported_frames, average_size);
+        return new_qp;
+    }
 
     return gop->qp;
 }
@@ -230,6 +294,13 @@ uint32_t get_inter_qp_for_size(EbRateControlModel *model_ptr, uint32_t desired_s
             }
         }
 
+        float deviation = 1;
+        if (deviation_model->deviation_reported < 3) {
+            deviation = deviation_model->deviation + model_ptr->model_variation;
+         } else {
+            deviation = deviation_model->deviation;
+         }
+
         if (deviation_model->deviation < -1.0) {
             desired_size = (float)desired_size * -(float)deviation_model->deviation;
         } else if (deviation_model->deviation > 1.0) {
@@ -265,7 +336,7 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
 
     uint32_t desired_total_bytes = (model_ptr->desired_bitrate / model_ptr->frame_rate) * model_ptr->reported_frames;
     int64_t delta_bytes = desired_total_bytes - model_ptr->total_bytes;
-    int64_t extra = delta_bytes / 3;
+    int64_t extra = (model_ptr->reported_frames > 250) ? delta_bytes / 3 : delta_bytes * 2;
 
     if (extra < 0 && gop->desired_size < (uint64_t)-extra) {
         gop->desired_size /= 15;
