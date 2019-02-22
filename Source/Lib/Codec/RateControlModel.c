@@ -251,7 +251,9 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentC
             }
         }
 
-        new_qp = CLIP3(gop->qp - 12, gop->qp + 12, new_qp);
+        int32_t clip_min = (int32_t)gop->qp - (((int32_t)gop->qp > 12) ? 12 : (int32_t)gop->qp);
+        int32_t clip_max = CLIP3(0, MAX_QP_VALUE, (int32_t)gop->qp + 12);
+        new_qp = CLIP3(clip_min, clip_max, (int32_t)new_qp);
 
         return new_qp;
     }
