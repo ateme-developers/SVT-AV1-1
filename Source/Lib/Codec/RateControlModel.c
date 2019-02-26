@@ -280,7 +280,7 @@ static EbRateControlComplexityModel DEFAULT_INTRA_COMPLEXITY_MODEL[] = {
         {27518, 310209},
         {23855, 251972},
         {20192, 193735}}},
-    {3001, MAX_COMPLEXITY, {}}
+    {3001, MAX_COMPLEXITY, {0}}
     };
 
 static EbRateControlComplexityModel DEFAULT_INTER_COMPLEXITY_MODEL[] = {
@@ -614,7 +614,7 @@ static EbRateControlComplexityModel DEFAULT_INTER_COMPLEXITY_MODEL[] = {
         {4628, 45483},
         {3654, 34909}
     }},
-    {14001, MAX_COMPLEXITY, {}}
+    {14001, MAX_COMPLEXITY, {0}}
 };
 
 static EbRateControlComplexityModelDeviation COMPLEXITY_DEVIATION_INTRA[] = {
