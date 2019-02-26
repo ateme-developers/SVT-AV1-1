@@ -678,10 +678,6 @@ void* MotionEstimationKernel(void *input_ptr)
 
                     }
                 }
-
-                if (motion != 0) {
-                    //printf("Frame %d. Motion = %ld\n", picture_control_set_ptr->picture_number, motion / picture_control_set_ptr->full_sb_count);
-                }
             }
             else {
                 uint32_t                       bestOisCuIndex = 0;
