@@ -693,6 +693,13 @@ EbErrorType rate_control_model_init(EbRateControlModel *model_ptr, SequenceContr
     EB_MALLOC(EbRateControlComplexityModelDeviation *, model_ptr->complexity_variation_inter_model, sizeof(EbRateControlComplexityModelDeviation) * 16, EB_N_PTR);
     EB_MEMCPY(model_ptr->complexity_variation_inter_model, (void *)COMPLEXITY_DEVIATION_INTER, sizeof(EbRateControlComplexityModelDeviation) * 16);
 
+    printf("\n{\"type\": \"rateControlInit\", \"bitrate\": \"%d\", \"frameRate\": \"%d\", \"width\": \"%d\", \"height\": \"%d\", \"intraPeriod\": \"%d\"}\n",
+        model_ptr->desired_bitrate,
+        model_ptr->frame_rate,
+        model_ptr->width,
+        model_ptr->height,
+        model_ptr->intra_period);
+
     return EB_ErrorNone;
 }
 
@@ -719,6 +726,12 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
     if (picture_ptr->av1FrameType != INTER_FRAME) {
         gop->intra_size = size;
     }
+
+    printf("\n{\"type\": \"rateControlFrameCompleted\", \"frameType\": \"%s\", \"pictureNumber\": \"%d\", \"size\": \"%d\", \"qp\": \"%d\"}\n",
+        (picture_ptr->av1FrameType == INTER_FRAME) ? "inter" : "intra",
+        picture_ptr->picture_number,
+        size,
+        picture_ptr->picture_qp);
 
     if (gop->reported_frames == gop->length) {
         size_t inter_size = ((float)gop->actual_size - (float)gop->intra_size) / (float)model_ptr->intra_period;
@@ -816,12 +829,15 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentC
                     max = gop->qp + MAX_DELTA_QP_WHITIN_GOP;
                 }
 
-                return CLIP3(min, max, new_qp);
+                picture_ptr->picture_qp = CLIP3(min, max, new_qp);
+                break;
             }
         }
+    } else {
+        picture_ptr->picture_qp = gop->qp;
     }
 
-    return gop->qp;
+    return picture_ptr->picture_qp;
 }
 
 static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_ptr) {
