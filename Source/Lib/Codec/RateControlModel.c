@@ -723,15 +723,24 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
     gop->actual_size += size;
     gop->reported_frames++;
 
+    //printf("\nRESULT FOR FRAME %ld (QP %ld). Level %ld -> %ld (complexity %ld)\n", picture_ptr->picture_number, picture_ptr->picture_qp, picture_ptr->temporal_layer_index, size, picture_ptr->complexity);
+
+
     if (picture_ptr->av1FrameType != INTER_FRAME) {
         gop->intra_size = size;
     }
 
-    printf("\n{\"type\": \"rateControlFrameCompleted\", \"frameType\": \"%s\", \"pictureNumber\": \"%d\", \"size\": \"%d\", \"qp\": \"%d\"}\n",
+    uint32_t desired_total_bytes = (model_ptr->desired_bitrate / model_ptr->frame_rate) * model_ptr->reported_frames;
+    int64_t delta_bytes = desired_total_bytes - model_ptr->total_bytes;
+    printf("\n{\"type\": \"rateControlFrameCompleted\", \"frameType\": \"%s\", \"pictureNumber\": \"%d\", \"size\": \"%d\", \"qp\": \"%d\", \"extra\": \"%ld\", \"actualSize\": \"%ld\", \"desiredSize\": \"%ld\", \"deviation\": \"%f\"}\n",
         (picture_ptr->av1FrameType == INTER_FRAME) ? "inter" : "intra",
         picture_ptr->picture_number,
         size,
-        picture_ptr->picture_qp);
+        picture_ptr->picture_qp,
+        delta_bytes,
+        size,
+        (picture_ptr->av1FrameType == INTER_FRAME) ? gop->expected_inter_size : gop->expected_intra_size,
+        (picture_ptr->av1FrameType == INTER_FRAME) ? (float)gop->expected_inter_size / (float)size : (float)gop->expected_intra_size / (float)size);
 
     if (gop->reported_frames == gop->length) {
         size_t inter_size = ((float)gop->actual_size - (float)gop->intra_size) / (float)model_ptr->intra_period;
@@ -740,6 +749,17 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
 
         intra_variation = (float)gop->expected_intra_size / (float)gop->intra_size;
         inter_variation = (float)gop->expected_inter_size / (float)inter_size;
+
+        printf("\n{\"type\": \"rateControlGopCompleted\", \"gopNumber\": \"%ld\", \"intraVariation\": \"%f\", \"interVariation\": \"%f\", \"intraComplexity\": \"%ld\", \"interComplexity\": \"%ld\"}\n",
+            gop->index / model_ptr->intra_period,
+            intra_variation,
+            inter_variation,
+            gop->complexity,
+            estimate_gop_complexity(model_ptr, gop));
+
+        uint32_t desired_total_bytes = (model_ptr->desired_bitrate / model_ptr->frame_rate) * model_ptr->reported_frames;
+        int64_t delta_bytes = desired_total_bytes - model_ptr->total_bytes;
+
 
         uint32_t complexity_inter = estimate_gop_complexity(model_ptr, gop);
 
@@ -837,7 +857,7 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentC
         picture_ptr->picture_qp = gop->qp;
     }
 
-    return picture_ptr->picture_qp;
+    return picture_ptr->picture_qp;// + picture_ptr->temporal_layer_index;
 }
 
 static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_ptr) {
@@ -893,14 +913,15 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
     uint32_t desired_total_bytes = (model_ptr->desired_bitrate / model_ptr->frame_rate) * model_ptr->reported_frames;
     int64_t delta_bytes = desired_total_bytes - model_ptr->total_bytes;
     int64_t extra = delta_bytes / MAX_PORTION_OF_EXTRA_BYTES;
+    size_t size = (float)gop->desired_size / (float)model_ptr->pixels * MODEL_DEFAULT_PIXEL_AREA;
 
-    if (extra < 0 && gop->desired_size < (uint64_t)-extra) {
+    if (extra < 0 && size < (uint64_t)-extra) {
         gop->desired_size /= MAX_DOWNSIZE_FACTOR;
+        size /= MAX_DOWNSIZE_FACTOR;
     } else {
         gop->desired_size += extra;
+        size += extra;
     }
-
-    size_t size = (float)gop->desired_size / (float)model_ptr->pixels * MODEL_DEFAULT_PIXEL_AREA;
 
     for (unsigned int qp = 0; qp <= MAX_QP_VALUE; qp++) {
         EbRateControlComplexityQpMinMax *sizes = &model->size[qp];
@@ -939,6 +960,14 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
 
         previousGop->length = gop->index - previousGop->index;
     }
+
+    printf("\n{\"type\": \"rateControlGopCreated\", \"gopNumber\": \"%ld\", \"qp\": \"%ld\", \"expectedSize\": \"%ld\", \"espectedIntraSize\": \"%f\", \"espectedInterSize\": \"%ld\"}\n",
+        gop->index / model_ptr->intra_period,
+        gop->qp,
+        gop->desired_size / MODEL_DEFAULT_PIXEL_AREA * (float)model_ptr->pixels,
+        gop->expected_intra_size,
+        gop->expected_inter_size,
+        estimate_gop_complexity(model_ptr, gop));
 
     EbReleaseMutex(model_ptr->model_mutex);
 }
