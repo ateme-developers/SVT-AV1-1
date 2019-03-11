@@ -16,7 +16,7 @@
 #include "EbIntraPrediction.h"
 #include "EbLambdaRateTables.h"
 #include "EbComputeSAD.h"
-#include "RateControlModel.h"
+#include "EbRateControlModel.h"
 
 #include "emmintrin.h"
 

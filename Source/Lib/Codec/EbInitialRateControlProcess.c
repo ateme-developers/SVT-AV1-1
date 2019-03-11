@@ -1696,7 +1696,7 @@ void* InitialRateControlKernel(void *input_ptr)
             ReleasePaReferenceObjects(
                 picture_control_set_ptr);
 
-            unsigned int sad_me = 0;
+            uint64_t sad_me = 0;
             for (unsigned int sb_index = 0; sb_index < picture_control_set_ptr->sb_total_count; ++sb_index) {
 
                 SbParams_t *sb_params_ptr = &sequence_control_set_ptr->sb_params_array[sb_index];

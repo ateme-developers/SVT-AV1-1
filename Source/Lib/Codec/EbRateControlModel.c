@@ -6,18 +6,17 @@
 #include "EbUtility.h"
 
 #include "EbPictureControlSet.h"
-#include "RateControlGopInfo.h"
-#include "RateControlModel.h"
+#include "EbRateControlModel.h"
 
 /*
  * @private
  * @function record_new_gop. Take into account a new group of picture in the
  * model
  * @param {EbRateControlModel*} model_ptr.
- * @param {PictureParentControlSet_t*} picture_ptr. Picture holding the intra frame.
+ * @param {PictureParentControlSet_t*} picture_control_set_ptr. Picture holding the intra frame.
  * @return {void}.
  */
-static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_ptr);
+static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_control_set_ptr);
 
 /*
  * @private
@@ -703,8 +702,8 @@ EbErrorType rate_control_model_init(EbRateControlModel *model_ptr, SequenceContr
     model_ptr->gop_infos = gop_infos;
     model_ptr->intra_period = sequence_control_set_ptr->static_config.intra_period_length;
     model_ptr->number_of_frame = number_of_frame;
-    model_ptr->intra_default_variation = 1.0;
-    model_ptr->inter_default_variation = 1.0;
+    model_ptr->intra_default_variation = 1 << RC_DEVIATION_PRECISION;
+    model_ptr->inter_default_variation = 1 << RC_DEVIATION_PRECISION;
     model_ptr->intra_default_variation_reported = 0;
     model_ptr->inter_default_variation_reported = 0;
 
@@ -717,21 +716,21 @@ EbErrorType rate_control_model_init(EbRateControlModel *model_ptr, SequenceContr
     return EB_ErrorNone;
 }
 
-EbErrorType rate_control_report_complexity(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_ptr) {
+EbErrorType rate_control_report_complexity(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_control_set_ptr) {
     eb_block_on_mutex(model_ptr->model_mutex);
 
-    model_ptr->gop_infos[picture_ptr->picture_number].complexity = picture_ptr->complexity;
-    model_ptr->gop_infos[picture_ptr->picture_number].picture_ptr = picture_ptr;
+    model_ptr->gop_infos[picture_control_set_ptr->picture_number].complexity = picture_control_set_ptr->complexity;
+    model_ptr->gop_infos[picture_control_set_ptr->picture_number].picture_control_set_ptr = picture_control_set_ptr;
 
     eb_release_mutex(model_ptr->model_mutex);
 
     return EB_ErrorNone;
 }
 
-EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_ptr) {
-    uint64_t size = picture_ptr->total_num_bits;
-    EbRateControlGopInfo *frame = &model_ptr->gop_infos[picture_ptr->picture_number];
-    EbRateControlGopInfo *gop = get_gop_infos(model_ptr->gop_infos, picture_ptr->picture_number);
+EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_control_set_ptr) {
+    uint64_t size = picture_control_set_ptr->total_num_bits;
+    EbRateControlGopInfo *frame = &model_ptr->gop_infos[picture_control_set_ptr->picture_number];
+    EbRateControlGopInfo *gop = get_gop_infos(model_ptr->gop_infos, picture_control_set_ptr->picture_number);
 
     eb_block_on_mutex(model_ptr->model_mutex);
     model_ptr->total_bytes += size;
@@ -740,28 +739,25 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
     gop->reported_frames++;
 
     frame->encoded = EB_TRUE;
-    if (picture_ptr->av1FrameType != INTER_FRAME) {
+    if (picture_control_set_ptr->av1FrameType != INTER_FRAME)
         gop->intra_size = size;
-    } else {
+    else
         frame->actual_size = size;
-    }
 
     if (gop->reported_frames == gop->length) {
-        size_t inter_size = ((float)gop->actual_size - (float)gop->intra_size) / (float)model_ptr->intra_period;
-        float intra_variation = 1;
-        float inter_variation = 1;
+        size_t inter_size = ((gop->actual_size << RC_DEVIATION_PRECISION) - (gop->intra_size << RC_DEVIATION_PRECISION)) / (model_ptr->intra_period << RC_DEVIATION_PRECISION);
+        int64_t intra_variation = 1;
+        int64_t inter_variation = 1;
 
-        intra_variation = (float)gop->expected_intra_size / (float)gop->intra_size;
-        inter_variation = (float)gop->expected_inter_size / (float)inter_size;
+        intra_variation = (gop->expected_intra_size << RC_DEVIATION_PRECISION) / (gop->intra_size);
+        inter_variation = (gop->expected_inter_size << RC_DEVIATION_PRECISION) / (inter_size);
 
         model_ptr->intra_default_variation = ((model_ptr->intra_default_variation * model_ptr->intra_default_variation_reported) + intra_variation) / (model_ptr->intra_default_variation_reported + 1);
-        if (model_ptr->intra_default_variation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED) {
+        if (model_ptr->intra_default_variation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED)
             model_ptr->intra_default_variation_reported++;
-        }
         model_ptr->inter_default_variation = ((model_ptr->inter_default_variation * model_ptr->inter_default_variation_reported) + inter_variation) / (model_ptr->inter_default_variation_reported + 1);
-        if (model_ptr->inter_default_variation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED) {
+        if (model_ptr->inter_default_variation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED)
             model_ptr->inter_default_variation_reported++;
-        }
 
         uint32_t complexity_inter = estimate_gop_complexity(model_ptr, gop);
 
@@ -771,28 +767,24 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
         for (unsigned int i = 0; model_ptr->complexity_variation_intra_model[i].scope_end != MAX_COMPLEXITY; i++) {
             model_deviation = &model_ptr->complexity_variation_intra_model[i];
 
-            if (gop->complexity >= model_deviation->scope_start && gop->complexity <= model_deviation->scope_end) {
+            if (gop->complexity >= model_deviation->scope_start && gop->complexity <= model_deviation->scope_end)
                 break ;
-            }
         }
 
         for (unsigned int i = 0; model_ptr->complexity_variation_inter_model[i].scope_end != MAX_COMPLEXITY; i++) {
             model_inter_deviation = &model_ptr->complexity_variation_inter_model[i];
 
-            if (complexity_inter >= model_inter_deviation->scope_start && complexity_inter <= model_inter_deviation->scope_end) {
+            if (complexity_inter >= model_inter_deviation->scope_start && complexity_inter <= model_inter_deviation->scope_end)
                 break ;
-            }
         }
 
         model_deviation->deviation = ((model_deviation->deviation * model_deviation->deviation_reported) + intra_variation) / (model_deviation->deviation_reported + 1);
-        if (model_deviation->deviation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED) {
+        if (model_deviation->deviation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED) 
             model_deviation->deviation_reported++;
-        }
 
         model_inter_deviation->deviation = ((model_inter_deviation->deviation * model_inter_deviation->deviation_reported) + inter_variation) / (model_inter_deviation->deviation_reported + 1);
-        if (model_inter_deviation->deviation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED) {
+        if (model_inter_deviation->deviation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED)
             model_inter_deviation->deviation_reported++;
-        }
     }
 
     eb_release_mutex(model_ptr->model_mutex);
@@ -800,30 +792,30 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
     return EB_ErrorNone;
 }
 
-uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_ptr) {
-    FRAME_TYPE type = picture_ptr->av1FrameType;
+uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_control_set_ptr) {
+    FRAME_TYPE type = picture_control_set_ptr->av1FrameType;
 
-    if (type == INTRA_ONLY_FRAME || type == KEY_FRAME) {
-        record_new_gop(model_ptr, picture_ptr);
-    }
+    if (type == INTRA_ONLY_FRAME || type == KEY_FRAME)
+        record_new_gop(model_ptr, picture_control_set_ptr);
 
-    EbRateControlGopInfo *gop = get_gop_infos(model_ptr->gop_infos, picture_ptr->picture_number);
+    EbRateControlGopInfo *gop = get_gop_infos(model_ptr->gop_infos, picture_control_set_ptr->picture_number);
     uint32_t base_qp = gop->qp;
 
     if (type == INTER_FRAME) {
-        uint32_t inter_qp = CLIP3(0, MAX_QP_VALUE, (int64_t)base_qp + DELTA_LEVELS[picture_ptr->temporal_layer_index]);
-        picture_ptr->best_pred_qp = inter_qp;
+        uint32_t inter_qp = CLIP3(0, MAX_QP_VALUE, (int64_t)base_qp + DELTA_LEVELS[picture_control_set_ptr->temporal_layer_index]);
+        picture_control_set_ptr->best_pred_qp = inter_qp;
     } else {
-        picture_ptr->best_pred_qp = gop->qp;
+        picture_control_set_ptr->best_pred_qp = gop->qp;
     }
 
-    if (gop->reported_frames > AMOUNT_OF_REPORTED_FRAMES_TO_TRIGGER_ON_THE_FLY_QP && picture_ptr->temporal_layer_index < MAX_INTER_LEVEL_FOR_ON_THE_FLY_QP) {
-        float deviation = 1;
+    if (gop->reported_frames > AMOUNT_OF_REPORTED_FRAMES_TO_TRIGGER_ON_THE_FLY_QP &&
+        picture_control_set_ptr->temporal_layer_index < MAX_INTER_LEVEL_FOR_ON_THE_FLY_QP) {
+        int64_t deviation = 1;
         int32_t delta_inter = 0;
         size_t expected_size = 0;
         size_t actual_size = 0;
 
-        for (unsigned int i = gop->index + 1; !model_ptr->gop_infos[i].exists; i++) {
+        for (unsigned int i = gop->index + 1; !model_ptr->gop_infos[i].exists && gop->index + i < (uint32_t)model_ptr->intra_period; i++) {
             EbRateControlGopInfo *current = &model_ptr->gop_infos[i];
 
             if (current->encoded) {
@@ -833,24 +825,23 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentC
         }
 
         if (actual_size != 0) {
-            deviation = ((float)expected_size + (float)gop->expected_intra_size) / ((float)actual_size + (float)gop->intra_size);
-            delta_inter = 10 - abs((float)deviation * 10);
+            deviation = ((expected_size << RC_DEVIATION_PRECISION) + (gop->expected_intra_size << RC_DEVIATION_PRECISION)) / (actual_size + gop->intra_size);
+            delta_inter = 10 - ABS(((deviation * 10) >> RC_DEVIATION_PRECISION));
         }
 
         delta_inter = CLIP3(-MAX_DELTA_QP_WHITIN_GOP, MAX_DELTA_QP_WHITIN_GOP, delta_inter);
 
-        if (delta_inter < 0 && picture_ptr->best_pred_qp < abs(delta_inter)) {
-            delta_inter = -picture_ptr->best_pred_qp;
-        }
+        if (delta_inter < 0 && picture_control_set_ptr->best_pred_qp < ABS(delta_inter))
+            delta_inter = -picture_control_set_ptr->best_pred_qp;
 
-        picture_ptr->best_pred_qp += delta_inter;
+        picture_control_set_ptr->best_pred_qp += delta_inter;
     }
 
-    return picture_ptr->best_pred_qp;
+    return picture_control_set_ptr->best_pred_qp;
 }
 
-static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_ptr) {
-    uint64_t pictureNumber = picture_ptr->picture_number;
+static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSet_t *picture_control_set_ptr) {
+    uint64_t pictureNumber = picture_control_set_ptr->picture_number;
     EbRateControlGopInfo *gop = &model_ptr->gop_infos[pictureNumber];
 
     eb_block_on_mutex(model_ptr->model_mutex);
@@ -870,75 +861,66 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
     for (unsigned int i = 0; DEFAULT_INTRA_COMPLEXITY_MODEL[i].scope_end != MAX_COMPLEXITY; i++) {
         model = &DEFAULT_INTRA_COMPLEXITY_MODEL[i];
 
-        if (gop->complexity >= model->scope_start && gop->complexity <= model->scope_end) {
+        if (gop->complexity >= model->scope_start && gop->complexity <= model->scope_end)
             break ;
-        }
     }
 
     for (unsigned int i = 0; DEFAULT_INTER_COMPLEXITY_MODEL[i].scope_end != MAX_COMPLEXITY; i++) {
         model_inter = &DEFAULT_INTER_COMPLEXITY_MODEL[i];
 
-        if (complexity_inter >= model_inter->scope_start && complexity_inter <= model_inter->scope_end) {
+        if (complexity_inter >= model_inter->scope_start && complexity_inter <= model_inter->scope_end)
             break ;
-        }
     }
 
     for (unsigned int i = 0; model_ptr->complexity_variation_intra_model[i].scope_end != MAX_COMPLEXITY; i++) {
         model_deviation = &model_ptr->complexity_variation_intra_model[i];
 
-        if (gop->complexity >= model_deviation->scope_start && gop->complexity <= model_deviation->scope_end) {
+        if (gop->complexity >= model_deviation->scope_start && gop->complexity <= model_deviation->scope_end)
             break ;
-        }
     }
 
     for (unsigned int i = 0; model_ptr->complexity_variation_inter_model[i].scope_end != MAX_COMPLEXITY; i++) {
         model_inter_deviation = &model_ptr->complexity_variation_inter_model[i];
 
-        if (complexity_inter >= model_inter_deviation->scope_start && complexity_inter <= model_inter_deviation->scope_end) {
+        if (complexity_inter >= model_inter_deviation->scope_start && complexity_inter <= model_inter_deviation->scope_end)
             break ;
-        }
     }
 
-    if (model_deviation->deviation_reported == 0) {
+    if (model_deviation->deviation_reported == 0) 
         model_deviation->deviation = model_ptr->intra_default_variation;
-    }
-    if (model_inter_deviation->deviation_reported == 0) {
+
+    if (model_inter_deviation->deviation_reported == 0)
         model_inter_deviation->deviation = model_ptr->inter_default_variation;
-    }
 
     uint32_t desired_total_bytes = (model_ptr->desired_bitrate / model_ptr->frame_rate) * model_ptr->reported_frames;
     int64_t delta_bytes = desired_total_bytes - model_ptr->total_bytes;
     int64_t extra = delta_bytes / DAMPING_FACTOR;
 
-    if (extra < 0 && gop->desired_size < (uint64_t)-extra) {
+    if (extra < 0 && gop->desired_size < (uint64_t)-extra)
         gop->desired_size /= MAX_DOWNSIZE_FACTOR;
-    } else {
+    else
         gop->desired_size += extra;
-    }
 
-    size_t size = (float)gop->desired_size / (float)model_ptr->pixels * MODEL_DEFAULT_PIXEL_AREA;
+    size_t size = ((gop->desired_size << RC_DEVIATION_PRECISION) / model_ptr->pixels * MODEL_DEFAULT_PIXEL_AREA) >> RC_DEVIATION_PRECISION;
 
     for (unsigned int qp = 0; qp <= MAX_QP_VALUE; qp++) {
         EbRateControlComplexityQpMinMax *sizes = &model->size[qp];
         int64_t pitch = (sizes->max - sizes->min) / (model->scope_end - model->scope_start);
 
-        if (model->scope_end == MAX_COMPLEXITY) {
+        if (model->scope_end == MAX_COMPLEXITY)
             pitch = PITCH_ON_MAX_COMPLEXITY_FOR_INTRA_FRAMES;
-        }
 
-        if (gop->complexity > 1500 && model_inter_deviation->deviation_reported == 0) {
-            model_inter_deviation->deviation = 1 / ((float)gop->complexity / 100);
-        }
-
-        uint64_t complexity_size_inter = compute_inter_size(model_ptr, gop, model_inter, complexity_inter, qp);
-        uint64_t complexity_size_intra = (sizes->min + (pitch * (gop->complexity - model->scope_start)));
-        uint64_t projected_gop_size = ((float)complexity_size_intra * (1.0 / model_deviation->deviation)) + ((float)complexity_size_inter * (1.0 / model_inter_deviation->deviation));
+        size_t complexity_size_inter = compute_inter_size(model_ptr, gop, model_inter, complexity_inter, qp);
+        size_t complexity_size_intra = (sizes->min + (pitch * (gop->complexity - model->scope_start)));
+        size_t tmp_intra = (complexity_size_intra / model_deviation->deviation) << RC_DEVIATION_PRECISION;
+        size_t tmp_inter = (complexity_size_inter / model_inter_deviation->deviation) << RC_DEVIATION_PRECISION;
+        size_t projected_gop_size = tmp_intra + tmp_inter;
 
         if (size > projected_gop_size || qp == MAX_QP_VALUE) {
             gop->qp = qp;
-            gop->picture_ptr->best_pred_qp = qp;
-            gop->expected_intra_size = (float)complexity_size_intra / MODEL_DEFAULT_PIXEL_AREA * (float)model_ptr->pixels;
-            gop->expected_inter_size = (float)complexity_size_inter / model_ptr->intra_period / MODEL_DEFAULT_PIXEL_AREA * (float)model_ptr->pixels;
+            gop->picture_control_set_ptr->best_pred_qp = qp;
+            gop->expected_intra_size = ((complexity_size_intra << RC_DEVIATION_PRECISION) / MODEL_DEFAULT_PIXEL_AREA * model_ptr->pixels) >> RC_DEVIATION_PRECISION;
+            gop->expected_inter_size = ((complexity_size_inter << RC_DEVIATION_PRECISION) / model_ptr->intra_period / MODEL_DEFAULT_PIXEL_AREA * model_ptr->pixels) >> RC_DEVIATION_PRECISION;
             break;
         }
     }
@@ -961,21 +943,19 @@ static uint64_t compute_inter_size(EbRateControlModel *model_ptr, EbRateControlG
 
     while ((position + gop_ptr->index) < model_ptr->number_of_frame &&
            position <= (int64_t)model_ptr->intra_period && 
-           position <= gop_ptr->picture_ptr->frames_in_sw) 
-    {
+           position <= gop_ptr->picture_control_set_ptr->frames_in_sw) {
         current = &(model_ptr->gop_infos[gop_ptr->index + position]);
-        uint32_t inter_qp = CLIP3(0, MAX_QP_VALUE, (int64_t)base_qp + DELTA_LEVELS[current->picture_ptr->temporal_layer_index]);
+        uint32_t inter_qp = CLIP3(0, MAX_QP_VALUE, (int64_t)base_qp + DELTA_LEVELS[current->picture_control_set_ptr->temporal_layer_index]);
         sizes_inter = &model_inter->size[inter_qp];
 
         int64_t                 pitch_inter = (sizes_inter->max - sizes_inter->min) / (model_inter->scope_end - model_inter->scope_start);
 
-        current->picture_ptr->best_pred_qp = inter_qp;
-        if (model_inter->scope_end == MAX_COMPLEXITY) {
+        current->picture_control_set_ptr->best_pred_qp = inter_qp;
+        if (model_inter->scope_end == MAX_COMPLEXITY)
             pitch_inter = PITCH_ON_MAX_COMPLEXITY_FOR_INTER_FRAMES;
-        }
 
         uint64_t inter_size = (sizes_inter->min + (pitch_inter * (complexity_inter - model_inter->scope_start)));
-        current->desired_size = (float)inter_size / MODEL_DEFAULT_PIXEL_AREA * (float)model_ptr->pixels;
+        current->desired_size = ((inter_size << RC_DEVIATION_PRECISION) / MODEL_DEFAULT_PIXEL_AREA * model_ptr->pixels) >> RC_DEVIATION_PRECISION;
 
         total_size += inter_size;
         position++;
@@ -984,6 +964,51 @@ static uint64_t compute_inter_size(EbRateControlModel *model_ptr, EbRateControlG
     return total_size;
 }
 
-uint32_t get_gop_size_in_bytes(EbRateControlModel *model_ptr) {
-    return (float)model_ptr->desired_bitrate / (float)((float)model_ptr->frame_rate / (float)model_ptr->intra_period);
+size_t get_gop_size_in_bytes(EbRateControlModel *model_ptr) {
+    return (model_ptr->desired_bitrate << RC_DEVIATION_PRECISION) / ((model_ptr->frame_rate << RC_DEVIATION_PRECISION) / model_ptr->intra_period);
+}
+
+EbRateControlGopInfo *get_gop_infos(EbRateControlGopInfo *gop_info,
+                                    uint64_t position) {
+    EbRateControlGopInfo    *current;
+
+    while (1) { // First frame is always guaranteed to exist
+        current = &gop_info[position];
+
+        if (current->exists) {
+            return current;
+        }
+
+        if (position == 0) {
+            return EB_NULL;
+        }
+        position--;
+    }
+
+    return EB_NULL;
+}
+
+uint32_t estimate_gop_complexity(EbRateControlModel *model_ptr,
+                                 EbRateControlGopInfo *gop_ptr) {
+    uint32_t                complexity = 0;
+    EbRateControlGopInfo    *current;
+    int64_t                 position = 1;
+    uint32_t                reported_complexity = 0;
+
+    while ((position + gop_ptr->index) < model_ptr->number_of_frame &&
+           position < (int64_t)model_ptr->intra_period) {
+        current = &(model_ptr->gop_infos[gop_ptr->index + position]);
+
+        if (current->complexity) {
+            complexity += current->complexity;
+            reported_complexity++;
+        }
+
+        position++;
+    }
+
+    if (reported_complexity)
+        complexity = complexity / reported_complexity;
+
+    return complexity;
 }

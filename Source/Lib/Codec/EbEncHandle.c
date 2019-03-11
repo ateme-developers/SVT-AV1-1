@@ -101,7 +101,7 @@
 #include "EbRestProcess.h"
 #endif
 
-#include "RateControlModel.h"
+#include "EbRateControlModel.h"
 
 #ifdef _WIN32
 #include <windows.h>

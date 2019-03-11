@@ -7,7 +7,6 @@
 #define RateControlModel_h
 
 #include "EbSequenceControlSet.h"
-#include "RateControlGopInfo.h"
 
 #define MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED 5
 #define MODEL_DEFAULT_PIXEL_AREA (1920 * 1080)
@@ -23,6 +22,8 @@
 #define MAX_INTER_LEVEL_FOR_ON_THE_FLY_QP 4
 
 #define MAX_DELTA_QP_WHITIN_GOP 12
+
+#define RC_DEVIATION_PRECISION 16
 
 struct SequenceControlSet_s;
 
@@ -43,9 +44,76 @@ typedef struct  EbRateControlComplexityModelDeviation_s
  {
      uint32_t    scope_start;
      uint32_t    scope_end;
-     float       deviation;
+     uint64_t    deviation;
      uint32_t    deviation_reported;
  } EbRateControlComplexityModelDeviation;
+
+typedef struct  EbRateControlGopInfo_s {
+    /*
+     * @variable EbBool. Represents an intra if not zero.
+     */
+    EbBool      exists;
+
+    /*
+     * @variable EbBool. Is the frame encoded.
+     */
+    EbBool      encoded;
+
+    /*
+     * @variable uint64_t. Frame index.
+     */
+    uint64_t    index;
+
+    /*
+     * @variable size_t. Estimated size for the frame in bytes.
+     */
+    size_t      desired_size;
+
+    /*
+     * @variable size_t. Actual size of the gop once encoded.
+     */
+    size_t      actual_size;
+
+    /*
+     * @variable size_t. Size of the intra frame in bits.
+     */
+    size_t      intra_size;
+
+    /*
+     * @variable size_t. Expected size of the intra frame.
+     */
+    size_t      expected_intra_size;
+
+    /*
+     * @variable size_t. Expected size of the inter frames.
+     */
+    size_t      expected_inter_size;
+
+    /*
+     * @variable uint32_t. Number of encoded frames in this GOP.
+     */
+    uint32_t    reported_frames;
+
+    /*
+     * @variable size_t. Number of frames in the GOP.
+     */
+    size_t      length;
+
+    /*
+     * @variable uint8_t. Assigned QP.
+     */
+    uint8_t     qp;
+
+    /*
+     * @variable uint32_t. Complexity score of the intra.
+     */
+    uint64_t    complexity;
+
+    /*
+     * @variable PictureParentControlSet_t*. Pointer to the actual frame.
+     */
+    PictureParentControlSet_t *picture_control_set_ptr;
+} EbRateControlGopInfo;
 
 /*
  * @struct Holds a prediction model for a sequence
@@ -71,7 +139,7 @@ typedef struct    RateControlModel_s {
     /*
      * @variable uint32_t. Desired bitrate set in the configuration
      */
-    uint32_t    desired_bitrate;
+    uint64_t    desired_bitrate;
 
     /*
      * @variable EB_U32. Desired frame rate set in the configuration
@@ -86,7 +154,7 @@ typedef struct    RateControlModel_s {
     /*
      * @variable uint32_t. Sum of the bytes of all the encoded frames
      */
-    uint64_t    total_bytes;
+    size_t      total_bytes;
   
     /*
      * @variable uint64_t. Number of frames encoded so far
@@ -106,7 +174,7 @@ typedef struct    RateControlModel_s {
     /*
      * @variable uint32_t. Number on pixels per frame. width * height
      */
-    uint32_t    pixels;
+    uint64_t    pixels;
 
     /*
      * @variable uint32_t. Number of frame to encode
@@ -121,32 +189,32 @@ typedef struct    RateControlModel_s {
     EbRateControlGopInfo    *gop_infos;
 
     /*
-     * @variable uint32_t. The model is updated from the motion estimation
+     * @variable EbHandle. The model is updated from the initial rate control
      * process so the model table should be thread safe.
      */
     EbHandle                model_mutex;
 
     /*
-     * @variable float. Average sequence intra model variation.
+     * @variable uint64_t. Average sequence intra model variation.
      * Used as temporary variation before the complexity model sets itself
      */
-    float intra_default_variation;
+    int64_t                 intra_default_variation;
 
     /*
-     * @variable float. Number of intra model variation reported.
+     * @variable uint64_t. Number of intra model variation reported.
      */
-    uint32_t intra_default_variation_reported;
+    uint64_t                intra_default_variation_reported;
 
     /*
-     * @variable float. Average sequence inter model variation.
+     * @variable uint64_t. Average sequence inter model variation.
      * Used as temporary variation before the complexity model sets itself
      */
-    float inter_default_variation;
+    int64_t                 inter_default_variation;
 
     /*
-     * @variable float. Number of inter model variation reported.
+     * @variable uint64_t. Number of inter model variation reported.
      */
-    uint32_t inter_default_variation_reported;
+    uint64_t                inter_default_variation_reported;
 } EbRateControlModel;
 
 /*
@@ -170,38 +238,52 @@ EbErrorType rate_control_model_init(EbRateControlModel *model_ptr,
 /*
  * @function rate_control_report_complexity. Record the complexity of a frame.
  * @param {EbRateControlModel*} model_ptr.
- * @param {PictureParentControlSet_t*} picture_ptr. Frame.
+ * @param {PictureParentControlSet_t*} picture_control_set_ptr. Frame.
  * @return {EbErrorType}.
  */
 EbErrorType rate_control_report_complexity(EbRateControlModel *model_ptr,
-                                           PictureParentControlSet_t *picture_ptr);
+                                           PictureParentControlSet_t *picture_control_set_ptr);
 
 /*
  * @function rate_control_update_model. Update a model with information from an encoded frame.
  * @param {EbRateControlModel*} model_ptr.
- * @param {PictureParentControlSet_t*} picture_ptr. Encoded frame.
+ * @param {PictureParentControlSet_t*} picture_control_set_ptr. Encoded frame.
  * @return {EbErrorType}.
  */
 EbErrorType rate_control_update_model(EbRateControlModel *model_ptr,
-                                      PictureParentControlSet_t *picture_ptr);
+                                      PictureParentControlSet_t *picture_control_set_ptr);
 
 /*
  * @function rate_control_get_quantizer. Return a QP for the given frame to be encoded.
  * Uses data from the model and information from the given frame to make a decision
  * @param {EbRateControlModel*} model_ptr.
- * @param {PictureParentControlSet_t*} picture_ptr. Frame to be encoded.
+ * @param {PictureParentControlSet_t*} picture_control_set_ptr. Frame to be encoded.
  * @return {uint8_t}. Suggested QP for the given frame
  */
 uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr,
-                                   PictureParentControlSet_t *picture_ptr);
+                                   PictureParentControlSet_t *picture_control_set_ptr);
 
 /*
  * @function get_gop_size_in_bytes. Return the size in bytes a new gop should take
  * to fit closer to the rate control constraints.
  * @param {EbRateControlModel*} model_ptr.
- * @return {uint32_t}. Ideal size the gop should take.
+ * @return {size_t}. Ideal size the gop should take.
  */
-uint32_t  get_gop_size_in_bytes(EbRateControlModel *model_ptr);
+size_t  get_gop_size_in_bytes(EbRateControlModel *model_ptr);
+
+/*
+ * @function get_gop_infos. Retreive the gop structure of the frame at the given
+ * position from the list of GOP already recorded. Because intra frames are not
+ * guaranteed to be processed in order, the previous GOP returned at the
+ * moment of the call *may* not be the actual previous one in the final
+ * bitsteam
+ * @param {EbRateControlGopInfo*} gop_info. Typically RateControlModel->gopInfos
+ * @param {uint64_t} position. Position of the GOP to start the search from.
+ * @return {EbRateControlGopInfo*}. Pointer to the GOP structure.
+ * or EB_NULL if not found (unlikely).
+ */
+EbRateControlGopInfo *get_gop_infos(EbRateControlGopInfo *gop_info,
+                                    uint64_t position);
 
 /*
  * @function estimate_gop_complexity. Estimate the complexity of the given gop.
