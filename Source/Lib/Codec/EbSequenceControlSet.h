@@ -22,7 +22,7 @@
 #include "EbSystemResourceManager.h"
 #include "EbEncodeContext.h"
 #include "EbPredictionStructure.h"
-#include "RateControlModel.h"
+#include "EbRateControlModel.h"
 #include "noise_model.h"
 
 

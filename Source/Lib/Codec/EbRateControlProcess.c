@@ -26,7 +26,7 @@
 
 #include "EbRateControlResults.h"
 #include "EbRateControlTasks.h"
-#include "RateControlModel.h"
+#include "EbRateControlModel.h"
 
 
 static uint8_t QP_OFFSET_LAYER_ARRAY[MAX_TEMPORAL_LAYERS] =
