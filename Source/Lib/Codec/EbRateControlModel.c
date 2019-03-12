@@ -34,7 +34,7 @@ static uint64_t compute_inter_size(EbRateControlModel *model_ptr, EbRateControlG
  * @variable uint8_t[7]. Delta QP to apply to inter frames from intra frames
  * depending on temporal layer level
  */
-static uint8_t DELTA_LEVELS[7] = {6, 9, 11, 12, 13, 14, 15};
+static uint8_t DELTA_LEVELS[7] = {3, 5, 7, 8, 9, 10, 11};
 
 static EbRateControlComplexityModel DEFAULT_INTRA_COMPLEXITY_MODEL[] = {
     {0, 100, {
@@ -169,134 +169,135 @@ static EbRateControlComplexityModel DEFAULT_INTRA_COMPLEXITY_MODEL[] = {
         {13379, 20192}}},
     {251, 1000, {
         {10229520, 16127460},
-        {8659096, 14303210},
-        {7088672, 12478961},
-        {5518248, 10654711},
-        {3947824, 8830462},
+        {14303210, 14303210},
+        {12478961, 12478961},
+        {10654711, 10654711},
+        {8830462, 8830462},
         {2377400, 7006212},
-        {2144240, 6497035},
-        {1911080, 5987858},
-        {1677920, 5478682},
-        {1444760, 4969505},
+        {6497035, 6497035},
+        {5987858, 5987858},
+        {5478682, 5478682},
+        {4969505, 4969505},
         {1211600, 4460328},
-        {1128762, 4208098},
-        {1045923, 3955867},
-        {963085, 3703637},
-        {880246, 3451406},
+        {4208098, 4208098},
+        {3955867, 3955867},
+        {3703637, 3703637},
+        {3451406, 3451406},
         {797408, 3199176},
-        {761554, 3067304},
-        {725699, 2935433},
-        {689845, 2803561},
-        {653990, 2671690},
-        {618136, 2539818},
-        {582282, 2407946},
-        {546427, 2276075},
-        {510573, 2144203},
-        {474718, 2012332},
+        {3067304, 3067304},
+        {2935433, 2935433},
+        {2803561, 2803561},
+        {2671690, 2671690},
+        {2539818, 2539818},
+        {2407946, 2407946},
+        {2276075, 2276075},
+        {2144203, 2144203},
+        {2012332, 2012332},
         {438864, 1880460},
-        {417165, 1795642},
-        {395466, 1710824},
-        {373766, 1626007},
-        {352067, 1541189},
-        {330368, 1456371},
-        {308669, 1371553},
-        {286970, 1286735},
-        {265270, 1201918},
-        {243571, 1117100},
+        {1795642, 1795642},
+        {1710824, 1710824},
+        {1626007, 1626007},
+        {1541189, 1541189},
+        {1456371, 1456371},
+        {1371553, 1371553},
+        {1286735, 1286735},
+        {1201918, 1201918},
+        {1117100, 1117100},
         {221872, 1032282},
-        {210240, 978984},
-        {198608, 925686},
-        {186976, 872388},
-        {175344, 819090},
-        {163712, 765792},
-        {152080, 712494},
-        {140448, 659196},
-        {128816, 605898},
-        {117184, 552600},
+        {978984, 978984},
+        {925686, 925686},
+        {872388, 872388},
+        {819090, 819090},
+        {765792, 765792},
+        {712494, 712494},
+        {659196, 659196},
+        {605898, 605898},
+        {552600, 552600},
         {105552, 499302},
-        {99946, 469204},
-        {94341, 439106},
-        {88735, 409009},
-        {83130, 378911},
-        {77524, 348813},
-        {71918, 318715},
-        {66313, 288617},
-        {60707, 258520},
-        {55102, 228422},
+        {469204, 469204},
+        {439106, 439106},
+        {409009, 409009},
+        {378911, 378911},
+        {348813, 348813},
+        {318715, 318715},
+        {288617, 288617},
+        {258520, 258520},
+        {228422, 228422},
         {49496, 198324},
-        {45833, 181238},
-        {42170, 164151},
-        {38507, 147065},
-        {34844, 129978},
-        {31181, 112892},
-        {27518, 95805},
-        {23855, 78719},
+        {181238, 181238},
+        {164151, 164151},
+        {147065, 147065},
+        {129978, 129978},
+        {112892, 112892},
+        {95805, 95805},
+        {78719, 78719},
         {20192, 61632}}},
     {1000, 3000, {
-        {10229520, 18188196},
-        {8659096, 16291650},
-        {7088672, 14395103},
-        {5518248, 12498557},
-        {3947824, 10602010},
-        {2377400, 8705464},
-        {2144240, 8184339},
-        {1911080, 7663214},
-        {1677920, 7142090},
-        {1444760, 6620965},
-        {1211600, 6099840},
-        {1128762, 5850609},
-        {1045923, 5601378},
-        {963085, 5352148},
-        {880246, 5102917},
-        {797408, 4853686},
-        {761554, 4710096},
-        {725699, 4566506},
-        {689845, 4422915},
-        {653990, 4279325},
-        {618136, 4135735},
-        {582282, 3992145},
-        {546427, 3848555},
-        {510573, 3704964},
-        {474718, 3561374},
-        {438864, 3417784},
-        {417165, 3290444},
-        {395466, 3163103},
-        {373766, 3035763},
-        {352067, 2908423},
-        {330368, 2781083},
-        {308669, 2653742},
-        {286970, 2526402},
-        {265270, 2399062},
-        {243571, 2271721},
-        {221872, 2144381},
-        {210240, 2055937},
-        {198608, 1967494},
-        {186976, 1879050},
-        {175344, 1790606},
-        {163712, 1702163},
-        {152080, 1613719},
-        {140448, 1525275},
-        {128816, 1436831},
-        {117184, 1348388},
-        {105552, 1259944},
-        {99946, 1199913},
-        {94341, 1139881},
-        {88735, 1079850},
-        {83130, 1019818},
-        {77524, 959787},
-        {71918, 899756},
-        {66313, 839724},
-        {60707, 779693},
-        {55102, 719661},
-        {49496, 659630},
-        {45833, 601393},
-        {42170, 543156},
-        {38507, 484919},
-        {34844, 426683},
-        {31181, 368446},
-        {27518, 310209},
-        {23855, 251972},
-        {20192, 193735}}},
+        {16127460, 18188196},
+        {14303210, 16291650},
+        {12478961, 14395104},
+        {10654711, 12498558},
+        {8830462, 10602011},
+        {7006212, 8705465},
+        {6497035, 8184340},
+        {5987858, 7663215},
+        {5478682, 7142090},
+        {4969505, 6620965},
+        {4460328, 6099840},
+        {4208098, 5850609},
+        {3955867, 5601378},
+        {3703637, 5352148},
+        {3451406, 5102917},
+        {3199176, 4853686},
+        {3067304, 4710096},
+        {2935433, 4566506},
+        {2803561, 4422916},
+        {2671690, 4279326},
+        {2539818, 4135735},
+        {2407946, 3992145},
+        {2276075, 3848555},
+        {2144203, 3704965},
+        {2012332, 3561375},
+        {1880460, 3417785},
+        {1795642, 3290444},
+        {1710824, 3163104},
+        {1626007, 3035764},
+        {1541189, 2908423},
+        {1456371, 2781083},
+        {1371553, 2653743},
+        {1286735, 2526402},
+        {1201918, 2399062},
+        {1117100, 2271722},
+        {1032282, 2144382},
+        {978984, 2055938},
+        {925686, 1967494},
+        {872388, 1879050},
+        {819090, 1790607},
+        {765792, 1702163},
+        {712494, 1613719},
+        {659196, 1525276},
+        {605898, 1436832},
+        {552600, 1348388},
+        {499302, 1259945},
+        {469204, 1199913},
+        {439106, 1139882},
+        {409009, 1079850},
+        {378911, 1019819},
+        {348813, 959788},
+        {318715, 899756},
+        {288617, 839725},
+        {258520, 779694},
+        {228422, 719662},
+        {198324, 659631},
+        {181238, 601394},
+        {164151, 543157},
+        {147065, 484920},
+        {129978, 426683},
+        {112892, 368446},
+        {95805, 310209},
+        {78719, 251972},
+        {61632, 193735}
+        }},
     {3001, MAX_COMPLEXITY, {{0}}}
     };
 
@@ -635,26 +636,26 @@ static EbRateControlComplexityModel DEFAULT_INTER_COMPLEXITY_MODEL[] = {
 };
 
 static EbRateControlComplexityModelDeviation COMPLEXITY_DEVIATION_INTRA[] = {
-    {0, 25, 1, 0},
-    {26, 50, 1, 0},
-    {51, 75, 1, 0},
-    {76, 100, 1, 0},
-    {101, 125, 1, 0},
-    {126, 150, 1, 0},
-    {151, 175, 1, 0},
-    {176, 200, 1, 0},
-    {201, 225, 1, 0},
-    {226, 250, 1, 0},
-    {251, 275, 1, 0},
-    {276, 300, 1, 0},
-    {301, 350, 1, 0},
-    {351, 400, 1, 0},
-    {401, 500, 1, 0},
-    {501, 600, 1, 0},
-    {601, 1000, 1, 0},
-    {1001, 2000, 1, 0},
-    {2001, 3000, 1, 0},
-    {3001, MAX_COMPLEXITY, 1, 0}
+    {0, 25, 1 << RC_DEVIATION_PRECISION, 5},
+    {26, 50, 1 << RC_DEVIATION_PRECISION, 5},
+    {51, 75, 1 << RC_DEVIATION_PRECISION, 5},
+    {76, 100, 1 << RC_DEVIATION_PRECISION, 5},
+    {101, 125, 1 << RC_DEVIATION_PRECISION, 5},
+    {126, 150, 1 << RC_DEVIATION_PRECISION, 5},
+    {151, 175, 1 << RC_DEVIATION_PRECISION, 5},
+    {176, 200, 1 << RC_DEVIATION_PRECISION, 5},
+    {201, 225, 1 << RC_DEVIATION_PRECISION, 5},
+    {226, 250, 1 << RC_DEVIATION_PRECISION, 5},
+    {251, 275, 1 << RC_DEVIATION_PRECISION, 5},
+    {276, 300, 1 << RC_DEVIATION_PRECISION, 5},
+    {301, 350, 1 << RC_DEVIATION_PRECISION, 5},
+    {351, 400, 1 << RC_DEVIATION_PRECISION, 5},
+    {401, 500, 1 << RC_DEVIATION_PRECISION, 5},
+    {501, 600, 1 << RC_DEVIATION_PRECISION, 5},
+    {601, 1000, 1 << RC_DEVIATION_PRECISION, 5},
+    {1001, 2000, 1 << RC_DEVIATION_PRECISION, 5},
+    {2001, 3000, 1 << RC_DEVIATION_PRECISION, 5},
+    {3001, MAX_COMPLEXITY, 1 << RC_DEVIATION_PRECISION, 0}
 };
 
 static EbRateControlComplexityModelDeviation COMPLEXITY_DEVIATION_INTER[] = {
@@ -700,7 +701,7 @@ EbErrorType rate_control_model_init(EbRateControlModel *model_ptr, SequenceContr
     model_ptr->height = sequence_control_set_ptr->luma_height;
     model_ptr->pixels = model_ptr->width * model_ptr->height;
     model_ptr->gop_infos = gop_infos;
-    model_ptr->intra_period = sequence_control_set_ptr->static_config.intra_period_length;
+    model_ptr->intra_period = (sequence_control_set_ptr->static_config.intra_period_length < 1) ? 1 : sequence_control_set_ptr->static_config.intra_period_length;
     model_ptr->number_of_frame = number_of_frame;
     model_ptr->intra_default_variation = 1 << RC_DEVIATION_PRECISION;
     model_ptr->inter_default_variation = 1 << RC_DEVIATION_PRECISION;
@@ -815,7 +816,7 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentC
         size_t expected_size = 0;
         size_t actual_size = 0;
 
-        for (unsigned int i = gop->index + 1; !model_ptr->gop_infos[i].exists && gop->index + i < (uint32_t)model_ptr->intra_period; i++) {
+        for (unsigned int i = gop->index + 1; !model_ptr->gop_infos[i].exists; i++) {
             EbRateControlGopInfo *current = &model_ptr->gop_infos[i];
 
             if (current->encoded) {
@@ -825,14 +826,15 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentC
         }
 
         if (actual_size != 0) {
-            deviation = ((expected_size << RC_DEVIATION_PRECISION) + (gop->expected_intra_size << RC_DEVIATION_PRECISION)) / (actual_size + gop->intra_size);
-            delta_inter = 10 - ABS(((deviation * 10) >> RC_DEVIATION_PRECISION));
+            deviation = ((expected_size + gop->expected_intra_size) * 10) / (actual_size + gop->intra_size);
+            delta_inter = 10 - ABS(deviation);
         }
 
         delta_inter = CLIP3(-MAX_DELTA_QP_WHITIN_GOP, MAX_DELTA_QP_WHITIN_GOP, delta_inter);
 
-        if (delta_inter < 0 && picture_control_set_ptr->best_pred_qp < ABS(delta_inter))
+        if (delta_inter < 0 && picture_control_set_ptr->best_pred_qp < abs(delta_inter)) {
             delta_inter = -picture_control_set_ptr->best_pred_qp;
+        }
 
         picture_control_set_ptr->best_pred_qp += delta_inter;
     }
@@ -910,8 +912,11 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
         if (model->scope_end == MAX_COMPLEXITY)
             pitch = PITCH_ON_MAX_COMPLEXITY_FOR_INTRA_FRAMES;
 
-        size_t complexity_size_inter = compute_inter_size(model_ptr, gop, model_inter, complexity_inter, qp);
-        size_t complexity_size_intra = (sizes->min + (pitch * (gop->complexity - model->scope_start)));
+        size_t complexity_size_inter = compute_inter_size(model_ptr, gop,
+        model_inter,
+        complexity_inter,
+        qp);
+        size_t complexity_size_intra = sizes->min + (pitch * (gop->complexity - model->scope_start));
         size_t tmp_intra = (complexity_size_intra / model_deviation->deviation) << RC_DEVIATION_PRECISION;
         size_t tmp_inter = (complexity_size_inter / model_inter_deviation->deviation) << RC_DEVIATION_PRECISION;
         size_t projected_gop_size = tmp_intra + tmp_inter;
@@ -954,10 +959,27 @@ static uint64_t compute_inter_size(EbRateControlModel *model_ptr, EbRateControlG
         if (model_inter->scope_end == MAX_COMPLEXITY)
             pitch_inter = PITCH_ON_MAX_COMPLEXITY_FOR_INTER_FRAMES;
 
-        uint64_t inter_size = (sizes_inter->min + (pitch_inter * (complexity_inter - model_inter->scope_start)));
+        int64_t alpha = 1;
+
+        if (current->picture_control_set_ptr->complexity > 128 && current->picture_control_set_ptr->complexity < current->picture_control_set_ptr->pic_avg_variance) {
+            alpha = (((current->picture_control_set_ptr->complexity * current->picture_control_set_ptr->complexity) + (current->picture_control_set_ptr->pic_avg_variance * current->picture_control_set_ptr->pic_avg_variance)) / (current->picture_control_set_ptr->complexity * current->picture_control_set_ptr->complexity)) / 2.0;
+        }
+
+        if (alpha > MAX_INTER_COMPLEXITY_DEVIATION) {
+            alpha = MAX_INTER_COMPLEXITY_DEVIATION;
+        }
+
+        uint64_t inter_size = (sizes_inter->min + (pitch_inter * (complexity_inter - model_inter->scope_start))) * alpha;
         current->desired_size = ((inter_size << RC_DEVIATION_PRECISION) / MODEL_DEFAULT_PIXEL_AREA * model_ptr->pixels) >> RC_DEVIATION_PRECISION;
 
         total_size += inter_size;
+        position++;
+    }
+
+    while ((position + gop_ptr->index) < model_ptr->number_of_frame &&
+           position <= (int64_t)model_ptr->intra_period) {
+        current = &(model_ptr->gop_infos[gop_ptr->index + position]);
+        current->desired_size = total_size / gop_ptr->picture_control_set_ptr->frames_in_sw;
         position++;
     }
 

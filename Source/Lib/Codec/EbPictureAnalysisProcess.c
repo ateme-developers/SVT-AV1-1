@@ -4438,6 +4438,7 @@ void DetermineHomogeneousRegionInPicture(
     uint64_t veryLowVarCnt = 0;
     uint64_t varLcuCnt = 0;
     uint32_t sb_total_count = picture_control_set_ptr->sb_total_count;
+    uint64_t mean_standard_deviation = 0;
 
     for (sb_index = 0; sb_index < sb_total_count; ++sb_index) {
         uint64_t meanSqrVariance32x32Based[4] = { 0 }, meanVariance32x32Based[4] = { 0 };
@@ -4512,6 +4513,7 @@ void DetermineHomogeneousRegionInPicture(
 
                 // Compute variance
                 varOfVar64x64Based = meanSqrVariance64x64Based - meanVariance64x64Based * meanVariance64x64Based;
+                mean_standard_deviation += varOfVar64x64Based;
 
                 // Turn off detail preservation if the varOfVar is greater than a threshold
                 if (varOfVar64x64Based > VAR_BASED_DETAIL_PRESERVATION_SELECTOR_THRSLHD)
@@ -4563,6 +4565,7 @@ void ComputePictureSpatialStatistics(
     uint32_t inputCbOriginIndex;
     uint32_t inputCrOriginIndex;
     uint64_t picTotVariance;
+    uint64_t meanTotVariance = 0;
 
     // Variance
     picTotVariance = 0;
@@ -4604,12 +4607,7 @@ void ComputePictureSpatialStatistics(
         }
 
         picTotVariance += (picture_control_set_ptr->variance[sb_index][RASTER_SCAN_CU_INDEX_64x64]);
-    }
-
-    if (picture_control_set_ptr->av1FrameType != INTER_FRAME) {
-        picture_control_set_ptr->pic_avg_variance = (uint16_t)(picTotVariance / sb_total_count);
-        picture_control_set_ptr->complexity = picture_control_set_ptr->pic_avg_variance;
-        rate_control_report_complexity(sequence_control_set_ptr->encode_context_ptr->rate_control_model_ptr, picture_control_set_ptr);
+        meanTotVariance += (picture_control_set_ptr->variance[sb_index][RASTER_SCAN_CU_INDEX_64x64]) * (picture_control_set_ptr->variance[sb_index][RASTER_SCAN_CU_INDEX_64x64]);
     }
 
     // Calculate the variance of variance to determine Homogeneous regions. Note: Variance calculation should be on.
@@ -4626,6 +4624,16 @@ void ComputePictureSpatialStatistics(
         sequence_control_set_ptr,
         picture_control_set_ptr);
 
+    if (picture_control_set_ptr->av1FrameType != INTER_FRAME) {
+        meanTotVariance = meanTotVariance / sb_total_count;
+        meanTotVariance = sqrt(meanTotVariance);
+        if ((picTotVariance / sb_total_count) < VARIANCE_CALC_PIVOT) {
+            meanTotVariance = (picTotVariance / sb_total_count);
+        }
+        picture_control_set_ptr->pic_avg_variance = (uint16_t)(meanTotVariance);
+        picture_control_set_ptr->complexity = picture_control_set_ptr->pic_avg_variance;
+        rate_control_report_complexity(sequence_control_set_ptr->encode_context_ptr->rate_control_model_ptr, picture_control_set_ptr);
+    }
 
     return;
 }

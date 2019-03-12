@@ -22,6 +22,10 @@
 #define MAX_INTER_LEVEL_FOR_ON_THE_FLY_QP 4
 
 #define MAX_DELTA_QP_WHITIN_GOP 12
+#define MAX_INTER_COMPLEXITY_DEVIATION 24
+
+// Variance above which mean variance is preferred
+#define VARIANCE_CALC_PIVOT 320
 
 #define RC_DEVIATION_PRECISION 16
 
