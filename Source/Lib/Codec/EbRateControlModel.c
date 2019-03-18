@@ -30,6 +30,9 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
  */
 static uint64_t compute_inter_size(EbRateControlModel *model_ptr, EbRateControlGopInfo *gop_ptr, EbRateControlComplexityModel *model_inter, uint32_t complexity_inter, uint64_t base_qp);
 
+static uint64_t scale_size_up(uint64_t area_in_pixels, uint64_t size);
+static uint64_t scale_size_back(uint64_t area_in_pixels, uint64_t size);
+
 /*
  * @variable uint8_t[7]. Delta QP to apply to inter frames from intra frames
  * depending on temporal layer level
@@ -714,6 +717,13 @@ EbErrorType rate_control_model_init(EbRateControlModel *model_ptr, SequenceContr
     EB_MALLOC(EbRateControlComplexityModelDeviation *, model_ptr->complexity_variation_inter_model, sizeof(EbRateControlComplexityModelDeviation) * 16, EB_N_PTR);
     EB_MEMCPY(model_ptr->complexity_variation_inter_model, (void *)COMPLEXITY_DEVIATION_INTER, sizeof(EbRateControlComplexityModelDeviation) * 16);
 
+    printf("\n{\"type\": \"rateControlInit\", \"bitrate\": \"%d\", \"frameRate\": \"%d\", \"width\": \"%d\", \"height\": \"%d\", \"intraPeriod\": \"%d\"}\n",
+        model_ptr->desired_bitrate,
+        model_ptr->frame_rate,
+        model_ptr->width,
+        model_ptr->height,
+        model_ptr->intra_period);
+
     return EB_ErrorNone;
 }
 
@@ -745,6 +755,18 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
     else
         frame->actual_size = size;
 
+    uint32_t desired_total_bytes = (model_ptr->desired_bitrate / model_ptr->frame_rate) * model_ptr->reported_frames;
+    int64_t delta_bytes = desired_total_bytes - model_ptr->total_bytes;
+    printf("\n{\"type\": \"rateControlFrameCompleted\", \"frameType\": \"%s\", \"pictureNumber\": \"%d\", \"size\": \"%d\", \"qp\": \"%d\", \"extra\": \"%ld\", \"actualSize\": \"%ld\", \"desiredSize\": \"%ld\", \"deviation\": \"%f\"}\n",
+        (picture_control_set_ptr->av1FrameType == INTER_FRAME) ? "inter" : "intra",
+        picture_control_set_ptr->picture_number,
+        size,
+        picture_control_set_ptr->picture_qp,
+        delta_bytes,
+        size,
+        (picture_control_set_ptr->av1FrameType == INTER_FRAME) ? gop->expected_inter_size : gop->expected_intra_size,
+        (picture_control_set_ptr->av1FrameType == INTER_FRAME) ? (float)gop->expected_inter_size / (float)size : (float)gop->expected_intra_size / (float)size);
+
     if (gop->reported_frames == gop->length) {
         size_t inter_size = ((gop->actual_size << RC_DEVIATION_PRECISION) - (gop->intra_size << RC_DEVIATION_PRECISION)) / (model_ptr->intra_period << RC_DEVIATION_PRECISION);
         int64_t intra_variation = 1;
@@ -752,6 +774,13 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
 
         intra_variation = (gop->expected_intra_size << RC_DEVIATION_PRECISION) / (gop->intra_size);
         inter_variation = (gop->expected_inter_size << RC_DEVIATION_PRECISION) / (inter_size);
+
+        printf("\n{\"type\": \"rateControlGopCompleted\", \"gopNumber\": \"%ld\", \"intraVariation\": \"%f\", \"interVariation\": \"%f\", \"intraComplexity\": \"%ld\", \"interComplexity\": \"%ld\"}\n",
+            gop->index / model_ptr->intra_period,
+            intra_variation,
+            inter_variation,
+            gop->complexity,
+            estimate_gop_complexity(model_ptr, gop));
 
         model_ptr->intra_default_variation = ((model_ptr->intra_default_variation * model_ptr->intra_default_variation_reported) + intra_variation) / (model_ptr->intra_default_variation_reported + 1);
         if (model_ptr->intra_default_variation_reported != MAX_COMPLEXITY_MODEL_DEVIATION_REPORTED)
@@ -904,6 +933,7 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
         gop->desired_size += extra;
 
     size_t size = ((gop->desired_size << RC_DEVIATION_PRECISION) / model_ptr->pixels * MODEL_DEFAULT_PIXEL_AREA) >> RC_DEVIATION_PRECISION;
+    size = scale_size_up(model_ptr->pixels, gop->desired_size);
 
     for (unsigned int qp = 0; qp <= MAX_QP_VALUE; qp++) {
         EbRateControlComplexityQpMinMax *sizes = &model->size[qp];
@@ -925,7 +955,9 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
             gop->qp = qp;
             gop->picture_control_set_ptr->best_pred_qp = qp;
             gop->expected_intra_size = ((complexity_size_intra << RC_DEVIATION_PRECISION) / MODEL_DEFAULT_PIXEL_AREA * model_ptr->pixels) >> RC_DEVIATION_PRECISION;
+            gop->expected_intra_size = scale_size_back(model_ptr->pixels, complexity_size_intra);
             gop->expected_inter_size = ((complexity_size_inter << RC_DEVIATION_PRECISION) / model_ptr->intra_period / MODEL_DEFAULT_PIXEL_AREA * model_ptr->pixels) >> RC_DEVIATION_PRECISION;
+            gop->expected_inter_size = scale_size_back(model_ptr->pixels, complexity_size_inter / model_ptr->intra_period);
             break;
         }
     }
@@ -936,6 +968,14 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
 
         previousGop->length = gop->index - previousGop->index;
     }
+
+    printf("\n{\"type\": \"rateControlGopCreated\", \"gopNumber\": \"%ld\", \"qp\": \"%ld\", \"expectedSize\": \"%ld\", \"espectedIntraSize\": \"%f\", \"espectedInterSize\": \"%ld\"}\n",
+        gop->index / model_ptr->intra_period,
+        gop->qp,
+        gop->desired_size / MODEL_DEFAULT_PIXEL_AREA * (float)model_ptr->pixels,
+        gop->expected_intra_size,
+        gop->expected_inter_size,
+        estimate_gop_complexity(model_ptr, gop));
 
     eb_release_mutex(model_ptr->model_mutex);
 }
@@ -1033,4 +1073,20 @@ uint32_t estimate_gop_complexity(EbRateControlModel *model_ptr,
         complexity = complexity / reported_complexity;
 
     return complexity;
+}
+
+static uint64_t scale_size_back(uint64_t area_in_pixels, uint64_t size) {
+    double ratio = (double)area_in_pixels / (double)MODEL_DEFAULT_PIXEL_AREA;
+    double proportion = sqrt(ratio);
+
+    printf("\nArea in pixels: %ld. Ratio: %f. Proportion: %f. Result: %ld\n", area_in_pixels, ratio, proportion, (uint64_t)((double)size * proportion));
+
+    return (uint64_t)((double)size * proportion);
+}
+
+static uint64_t scale_size_up(uint64_t area_in_pixels, uint64_t size) {
+    double ratio = (double)MODEL_DEFAULT_PIXEL_AREA / (double)area_in_pixels;
+    double proportion = sqrt(ratio);
+
+    return (uint64_t)((double)size * proportion);
 }
