@@ -1554,6 +1554,16 @@ void* rate_control_kernel(void *input_ptr){
             if (sequence_control_set_ptr->static_config.rate_control_mode) {
                 rate_control_update_model(rc_model_ptr, parentPictureControlSetPtr);
             }
+                (parentPictureControlSetPtr->av1FrameType != INTER_FRAME) && printf("\n>>>,%ld,%s,%ld,%lld,%lld,%lld,%lld,%lld\n",
+                    parentPictureControlSetPtr->picture_number,
+                    (parentPictureControlSetPtr->av1FrameType == INTER_FRAME) ? "inter" : "intra",
+                    parentPictureControlSetPtr->picture_qp,
+                    parentPictureControlSetPtr->total_num_bits,
+                    parentPictureControlSetPtr->meanVariance64,
+                    parentPictureControlSetPtr->meanVariance8,
+                    parentPictureControlSetPtr->meanSquareVariance64,
+                    parentPictureControlSetPtr->meanSquareVariance8
+                );
 
             // Queue variables
 #if OVERSHOOT_STAT_PRINT

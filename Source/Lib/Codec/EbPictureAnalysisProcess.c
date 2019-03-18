@@ -4564,11 +4564,8 @@ void ComputePictureSpatialStatistics(
     uint32_t inputLumaOriginIndex;
     uint32_t inputCbOriginIndex;
     uint32_t inputCrOriginIndex;
-    uint64_t picTotVariance;
-    uint64_t meanTotVariance = 0;
-
-    // Variance
-    picTotVariance = 0;
+    uint64_t picTotVariance = 0;
+    uint64_t picTotVariance8 = 0;
 
     for (sb_index = 0; sb_index < picture_control_set_ptr->sb_total_count; ++sb_index) {
         SbParams_t   *sb_params = &sequence_control_set_ptr->sb_params_array[sb_index];
@@ -4607,7 +4604,9 @@ void ComputePictureSpatialStatistics(
         }
 
         picTotVariance += (picture_control_set_ptr->variance[sb_index][RASTER_SCAN_CU_INDEX_64x64]);
-        meanTotVariance += (picture_control_set_ptr->variance[sb_index][RASTER_SCAN_CU_INDEX_64x64]) * (picture_control_set_ptr->variance[sb_index][RASTER_SCAN_CU_INDEX_64x64]);
+        for (unsigned int i = RASTER_SCAN_CU_INDEX_8x8_0; i <= RASTER_SCAN_CU_INDEX_8x8_32; i++) {
+            picTotVariance8 += picture_control_set_ptr->variance[sb_index][i];
+        }
     }
 
     // Calculate the variance of variance to determine Homogeneous regions. Note: Variance calculation should be on.
@@ -4625,13 +4624,8 @@ void ComputePictureSpatialStatistics(
         picture_control_set_ptr);
 
     if (picture_control_set_ptr->av1FrameType != INTER_FRAME) {
-        meanTotVariance = meanTotVariance / sb_total_count;
-        meanTotVariance = sqrt(meanTotVariance);
-        if ((picTotVariance / sb_total_count) < VARIANCE_CALC_PIVOT) {
-            meanTotVariance = (picTotVariance / sb_total_count);
-        }
-        picture_control_set_ptr->pic_avg_variance = (uint16_t)(meanTotVariance);
-        picture_control_set_ptr->complexity = picture_control_set_ptr->pic_avg_variance;
+        picture_control_set_ptr->complexity = picTotVariance8 / sb_total_count;
+        picture_control_set_ptr->pic_avg_variance = (uint16_t)(picTotVariance / sb_total_count);;
         rate_control_report_complexity(sequence_control_set_ptr->encode_context_ptr->rate_control_model_ptr, picture_control_set_ptr);
     }
 
