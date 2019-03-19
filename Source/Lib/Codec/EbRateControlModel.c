@@ -816,7 +816,7 @@ uint8_t rate_control_get_quantizer(EbRateControlModel *model_ptr, PictureParentC
         size_t expected_size = 0;
         size_t actual_size = 0;
 
-        for (unsigned int i = gop->index + 1; !model_ptr->gop_infos[i].exists; i++) {
+        for (unsigned int i = gop->index + 1; !model_ptr->gop_infos[i].exists && i < model_ptr->intra_period; i++) {
             EbRateControlGopInfo *current = &model_ptr->gop_infos[i];
 
             if (current->encoded) {
