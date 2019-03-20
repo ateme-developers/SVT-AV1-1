@@ -694,7 +694,7 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
 
     uint32_t desired_total_bytes = (model_ptr->desired_bitrate / model_ptr->frame_rate) * model_ptr->reported_frames;
     int64_t delta_bytes = desired_total_bytes - model_ptr->total_bytes;
-    printf("\n{\"type\": \"rateControlFrameCompleted\", \"frameType\": \"%s\", \"pictureNumber\": \"%d\", \"size\": \"%d\", \"qp\": \"%d\", \"extra\": \"%ld\", \"actualSize\": \"%ld\", \"complexity\": \"%ld\", \"desiredSize\": \"%ld\", \"deviation\": \"%f\"}\n",
+    printf("\n{\"type\": \"rateControlFrameCompleted\", \"frameType\": \"%s\", \"pictureNumber\": \"%d\", \"size\": \"%ld\", \"qp\": \"%d\", \"extra\": \"%ld\", \"actualSize\": \"%ld\", \"complexity\": \"%ld\", \"desiredSize\": \"%ld\", \"deviation\": \"%f\"}\n",
         (picture_control_set_ptr->av1FrameType == INTER_FRAME) ? "inter" : "intra",
         picture_control_set_ptr->picture_number,
         size,
@@ -713,7 +713,7 @@ EbErrorType rate_control_update_model(EbRateControlModel *model_ptr, PicturePare
         intra_variation = (gop->expected_intra_size << RC_DEVIATION_PRECISION) / (gop->intra_size);
         inter_variation = (gop->expected_inter_size << RC_DEVIATION_PRECISION) / (inter_size);
 
-        printf("\n{\"type\": \"rateControlGopCompleted\", \"gopNumber\": \"%ld\", \"intraVariation\": \"%f\", \"interVariation\": \"%f\", \"intraComplexity\": \"%ld\", \"interComplexity\": \"%ld\"}\n",
+        printf("\n{\"type\": \"rateControlGopCompleted\", \"gopNumber\": \"%ld\", \"intraVariation\": \"%ld\", \"interVariation\": \"%ld\", \"intraComplexity\": \"%ld\", \"interComplexity\": \"%ld\"}\n",
             gop->index / model_ptr->intra_period,
             intra_variation,
             inter_variation,
@@ -880,9 +880,9 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
             pitch = PITCH_ON_MAX_COMPLEXITY_FOR_INTRA_FRAMES;
 
         size_t complexity_size_inter = compute_inter_size(model_ptr, gop,
-        model_inter,
-        complexity_inter,
-        qp);
+            model_inter,
+            complexity_inter,
+            qp);
         size_t complexity_size_intra = sizes->min + (pitch * (gop->complexity - model->scope_start));
         size_t tmp_intra = (complexity_size_intra / model_deviation->deviation) << RC_DEVIATION_PRECISION;
         size_t tmp_inter = (complexity_size_inter / model_inter_deviation->deviation) << RC_DEVIATION_PRECISION;
@@ -905,10 +905,10 @@ static void record_new_gop(EbRateControlModel *model_ptr, PictureParentControlSe
         previousGop->length = gop->index - previousGop->index;
     }
 
-    printf("\n{\"type\": \"rateControlGopCreated\", \"gopNumber\": \"%ld\", \"qp\": \"%ld\", \"expectedSize\": \"%ld\", \"espectedIntraSize\": \"%f\", \"espectedInterSize\": \"%ld\"}\n",
+    printf("\n{\"type\": \"rateControlGopCreated\", \"gopNumber\": \"%ld\", \"qp\": \"%ld\", \"expectedSize\": \"%ld\", \"expectedIntraSize\": \"%ld\", \"expectedInterSize\": \"%ld\"}\n",
         gop->index / model_ptr->intra_period,
         gop->qp,
-        gop->desired_size / MODEL_DEFAULT_PIXEL_AREA * (float)model_ptr->pixels,
+        gop->desired_size,
         gop->expected_intra_size,
         gop->expected_inter_size,
         estimate_gop_complexity(model_ptr, gop));
@@ -944,7 +944,7 @@ static uint64_t compute_inter_size(EbRateControlModel *model_ptr, EbRateControlG
         if (alpha > MAX_INTER_COMPLEXITY_DEVIATION) {
             alpha = MAX_INTER_COMPLEXITY_DEVIATION;
         }
-
+        
         uint64_t inter_size = (sizes_inter->min + (pitch_inter * (complexity_inter - model_inter->scope_start))) * alpha;
         current->desired_size = ((inter_size << RC_DEVIATION_PRECISION) / MODEL_DEFAULT_PIXEL_AREA * model_ptr->pixels) >> RC_DEVIATION_PRECISION;
 
